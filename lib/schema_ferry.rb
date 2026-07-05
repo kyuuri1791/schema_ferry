@@ -1,0 +1,26 @@
+# frozen_string_literal: true
+
+require "active_record"
+
+require_relative "schema_ferry/version"
+require_relative "schema_ferry/errors"
+require_relative "schema_ferry/warnings"
+require_relative "schema_ferry/schema_model"
+require_relative "schema_ferry/dsl/table_rule"
+require_relative "schema_ferry/dsl/config"
+require_relative "schema_ferry/source/connection_registry"
+require_relative "schema_ferry/source/mysql_reader"
+require_relative "schema_ferry/converter/type_mapper"
+require_relative "schema_ferry/converter/identifier_shortener"
+require_relative "schema_ferry/converter/column_converter"
+require_relative "schema_ferry/converter/enum_check_builder"
+require_relative "schema_ferry/converter/schema_converter"
+require_relative "schema_ferry/target/ridgepole_writer"
+require_relative "schema_ferry/target/ridgepole_runner"
+require_relative "schema_ferry/pipeline"
+
+module SchemaFerry
+  def self.define(&)
+    Pipeline.new(Config.build(&))
+  end
+end

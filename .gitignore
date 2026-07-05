@@ -1,0 +1,15 @@
+/.bundle/
+/.yardoc
+/_yardoc/
+/coverage/
+/doc/
+/pkg/
+/spec/reports/
+/tmp/
+
+# rspec failure tracking
+.rspec_status
+
+# Gems should not pin their development dependency resolution; CI resolves
+# per-Ruby (3.1 → AR 7.x, 3.4 → AR 8.x).
+Gemfile.lock

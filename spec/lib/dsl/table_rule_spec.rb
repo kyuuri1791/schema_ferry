@@ -1,0 +1,64 @@
+# frozen_string_literal: true
+
+RSpec.describe SchemaFerry::TableRule do
+  subject(:rule) { described_class.new(:users) }
+
+  it "stores the table name as a string" do
+    expect(rule.table_name).to eq("users")
+  end
+
+  describe "#map_column" do
+    it "records a type override" do
+      rule.map_column(:is_admin, type: :boolean)
+      expect(rule.column_type_overrides).to eq("is_admin" => :boolean)
+    end
+
+    it "records an explicit default when given" do
+      rule.map_column(:tri, type: :integer, default: 2)
+      expect(rule.column_default_overrides).to eq("tri" => 2)
+    end
+
+    it "records an explicit nil default" do
+      rule.map_column(:tri, type: :integer, default: nil)
+      expect(rule.column_default_overrides).to eq("tri" => nil)
+    end
+
+    it "records no default override when not given" do
+      rule.map_column(:tri, type: :integer)
+      expect(rule.column_default_overrides).to be_empty
+    end
+  end
+
+  describe "#ignore_column" do
+    it "records ignored columns" do
+      rule.ignore_column(:legacy_field)
+      rule.ignore_column(:another_field)
+      expect(rule.ignored_columns).to contain_exactly("legacy_field", "another_field")
+    end
+  end
+
+  describe "#ignore_index" do
+    it "records ignored indexes" do
+      rule.ignore_index(:idx_old)
+      expect(rule.ignored_indexes).to contain_exactly("idx_old")
+    end
+  end
+
+  describe "#add_index" do
+    it "records an extra index declaration" do
+      rule.add_index(:body, using: :gin, opclass: :gin_trgm_ops)
+      expect(rule.extra_indexes)
+        .to eq([{ columns: ["body"], options: { using: :gin, opclass: :gin_trgm_ops } }])
+    end
+
+    it "accepts multiple columns" do
+      rule.add_index(:kind, :status, unique: true)
+      expect(rule.extra_indexes.first[:columns]).to eq(%w[kind status])
+    end
+
+    it "rejects unknown options" do
+      expect { rule.add_index(:body, lengths: 10) }
+        .to raise_error(SchemaFerry::ConfigError, /unknown option/)
+    end
+  end
+end

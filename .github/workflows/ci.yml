@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.1 resolves ActiveRecord 7.x, 3.4 resolves 8.x, so the matrix also
+        # covers both supported AR major versions.
+        ruby: ["3.1", "3.4"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install client libraries for mysql2 / pg
+        run: sudo apt-get update && sudo apt-get install -y default-libmysqlclient-dev libpq-dev
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - run: bundle exec rubocop
+      - run: bundle exec rspec

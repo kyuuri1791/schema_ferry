@@ -1,0 +1,65 @@
+# frozen_string_literal: true
+
+module SchemaFerry
+  class TypeMapper
+    # PG has no limit concept for text/binary/bigint; drop the MySQL-derived
+    # limits.
+    LIMIT_STRIPPED_TYPES = %i[text binary bigint].freeze
+
+    # PG's default timestamp precision is 6. Spelling it out makes ridgepole
+    # see a diff against the PG export (which omits it) on every run.
+    DEFAULT_PRECISION_TYPES = %i[datetime timestamptz time].freeze
+    PG_DEFAULT_PRECISION    = 6
+
+    DEFAULTS = {
+      json: :jsonb
+    }.freeze
+
+    KNOWN_TYPES = %i[
+      string text integer bigint float decimal
+      datetime date time boolean binary json jsonb
+    ].freeze
+
+    def initialize(global_overrides = {})
+      @overrides = DEFAULTS.merge(global_overrides)
+    end
+
+    # Returns [pg_type_sym, adjusted_options_hash]
+    def call(ar_type, options = {})
+      unless KNOWN_TYPES.include?(ar_type)
+        raise ConversionError, "Unknown MySQL AR type: #{ar_type.inspect}. " \
+                               "Use map_type or map_column to specify a PostgreSQL type."
+      end
+
+      pg_type  = @overrides.fetch(ar_type, ar_type)
+      adjusted = options.dup
+      pg_type, adjusted = normalize_integer(adjusted) if pg_type == :integer
+      adjusted.delete(:limit) if LIMIT_STRIPPED_TYPES.include?(pg_type)
+      strip_default_precision(pg_type, adjusted)
+      # PG numeric(20) equals numeric(20,0) and is exported without scale.
+      adjusted[:scale] = nil if pg_type == :decimal && adjusted[:scale]&.zero?
+
+      [pg_type, adjusted]
+    end
+
+    private
+
+    # MySQL reports every integer flavor as :integer with a byte limit; PG only
+    # has smallint(2) / integer(4) / bigint(8). Emit the shape ridgepole
+    # exports for PG so repeated runs see no diff.
+    def normalize_integer(options)
+      case options[:limit]
+      when nil  then [:integer, options]
+      when 1, 2 then [:integer, options.merge(limit: 2)]
+      when 3, 4 then [:integer, options.merge(limit: nil)]
+      else           [:bigint,  options.merge(limit: nil)]
+      end
+    end
+
+    def strip_default_precision(pg_type, options)
+      return unless DEFAULT_PRECISION_TYPES.include?(pg_type)
+
+      options[:precision] = nil if options[:precision] == PG_DEFAULT_PRECISION
+    end
+  end
+end
