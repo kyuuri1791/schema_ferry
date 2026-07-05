@@ -179,10 +179,11 @@ RSpec.describe SchemaFerry::RidgepoleWriter do
     end
 
     it "renders index column orders" do
-      idx   = build_index(name: "idx_recent", columns: ["created_at"], orders: { "created_at" => :desc })
-      table = build_table(name: "events", indexes: [idx])
+      orders = { "created_at" => :desc }
+      idx    = build_index(name: "idx_recent", columns: ["created_at"], orders: orders)
+      table  = build_table(name: "events", indexes: [idx])
       output = write(table)
-      expect(output).to include('order: {"created_at" => :desc}')
+      expect(output).to include("order: #{orders.inspect}")
     end
   end
 
