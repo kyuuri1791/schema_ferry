@@ -15,7 +15,7 @@ require_relative "schema_ferry/converter/identifier_shortener"
 require_relative "schema_ferry/converter/column_converter"
 require_relative "schema_ferry/converter/enum_check_builder"
 require_relative "schema_ferry/converter/schema_converter"
-require_relative "schema_ferry/target/ridgepole_writer"
+require_relative "schema_ferry/target/schemafile_renderer"
 require_relative "schema_ferry/target/ridgepole_runner"
 require_relative "schema_ferry/pipeline"
 

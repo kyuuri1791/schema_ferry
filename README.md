@@ -1,12 +1,12 @@
 # schema_ferry
 
-A Ruby gem for migrating from MySQL to PostgreSQL: it keeps the PostgreSQL schema in sync with a MySQL schema that keeps evolving while the migration is underway, via a declarative DSL.
+You're migrating a production MySQL database to PostgreSQL. Moving the data takes days or weeks — and meanwhile, developers keep shipping schema changes to MySQL. schema_ferry is a Ruby gem that keeps the PostgreSQL schema continuously in sync until cutover, driven by a declarative DSL.
 
 - **Incremental by design** — if the source schema changes mid-migration, just run it again; no manual diffing needed
-- **Sensible defaults, fully customizable** — built-in type mappings handle most cases; override anything with a declarative DSL
+- **Sensible defaults, fully customizable** — built-in type mappings handle most cases; override anything with a few DSL rules
 - **Safe to iterate** — `dry_run` shows the exact changes that would be applied, before touching anything
 
-schema_ferry is designed to run repeatedly (e.g. via cron) until the cutover is done. Data migration is out of scope — handle it separately with a dedicated tool that loads rows into the tables schema_ferry has created: e.g. [pgloader](https://pgloader.io/) in data-only mode for a one-shot bulk copy, or CDC-based replication (AWS DMS, [Debezium](https://debezium.io/), etc.) if you want the data to keep following along until cutover, just like the schema does.
+schema_ferry is designed to run repeatedly (e.g. via cron). Data migration is out of scope — pair it with [pgloader](https://pgloader.io/) (one-shot bulk copy) or CDC replication (AWS DMS, [Debezium](https://debezium.io/), …), which load rows into the tables schema_ferry has created.
 
 ## Requirements
 
@@ -37,16 +37,13 @@ pipeline = SchemaFerry.define do
   target "postgresql://user:password@host:5432/target_db"
 end
 
-pipeline.dry_run     # returns the changes that would be applied, without applying them
-pipeline.apply!      # applies the schema to PostgreSQL
-pipeline.schemafile  # the full generated schema, no target DB needed — handy while
-                     # iterating on rules, or to review/apply it yourself
+pipeline.dry_run  # returns the changes that would be applied, without applying them
+pipeline.apply!   # applies the schema to PostgreSQL
 ```
 
-> [!WARNING]
-> `apply!` delegates to [ridgepole](https://github.com/ridgepole/ridgepole), which makes the target match the generated schema. For tables it manages, **columns and indexes that are missing from the generated schema are dropped from the target** (e.g. a column excluded via `ignore_column`, or an index created by hand on the target — declare those with `add_index` instead); tables absent from the generated schema are themselves left untouched.
->
-> Review `dry_run` output before your first `apply!` and whenever you change the conversion rules — those are the moments that introduce drops. Unattended runs in between only mirror changes made to the MySQL schema; if even those need review, schedule `dry-run` instead and apply by hand.
+There is also `pipeline.schemafile`, which returns the generated schema as a string without connecting to the target.
+
+`apply!` makes the target match the generated schema — including **dropping** columns and indexes that are not part of it. Before running against a target that holds data, read [Destructive changes](#destructive-changes) below.
 
 ### CLI
 
@@ -88,6 +85,12 @@ end
 ```
 
 The same rules work in a CLI definition file.
+
+### Destructive changes
+
+`apply!` delegates to [ridgepole](https://github.com/ridgepole/ridgepole), which makes the target match the generated schema. For tables it manages, **columns and indexes that are missing from the generated schema are dropped from the target** (e.g. a column excluded via `ignore_column`, or an index created by hand on the target — declare those with `add_index` instead). Tables absent from the generated schema are themselves left untouched.
+
+Review `dry_run` output before your first `apply!` and whenever you change the conversion rules — those are the moments that introduce drops. Unattended runs in between only mirror changes made to the MySQL schema; if even those need review, schedule `dry-run` instead and apply by hand.
 
 ## DSL reference
 
@@ -149,6 +152,22 @@ Some MySQL constructs have no PostgreSQL equivalent. schema_ferry handles them a
 
 Each run executes a three-stage pipeline:
 
+```
+MySQL schema
+     │
+     │  1. Read (ActiveRecord)
+     ▼
+table definitions
+     │
+     │  2. Convert (default mappings + your DSL rules)
+     ▼
+Schemafile
+     │
+     │  3. Apply (ridgepole, diff only)
+     ▼
+PostgreSQL schema
+```
+
 1. **Read** — connects to MySQL and reads table definitions (columns, indexes, foreign keys) via ActiveRecord, using a connection pool isolated from any host Rails app
 2. **Convert** — applies the default type mappings and your custom rules to build a PostgreSQL-ready schema
 3. **Apply** — renders the schema as a [ridgepole](https://github.com/ridgepole/ridgepole) Schemafile and runs `ridgepole --apply` (or `--dry-run`) against the target database. ridgepole compares the declared schema with the target's current state and applies only the difference — that diffing is what makes runs incremental and idempotent, so schema_ferry never has to track what it applied before
@@ -157,7 +176,7 @@ Each run executes a three-stage pipeline:
 
 ```bash
 bundle install
-bundle exec rubocop  # linter
+bundle exec rubocop
 ```
 
 ### Unit tests

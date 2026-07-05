@@ -2,10 +2,10 @@
 
 module SchemaFerry
   module Target
-    class RidgepoleWriter
+    class SchemafileRenderer
       TIMESTAMP_COLS = %w[created_at updated_at].freeze
 
-      def write(tables)
+      def render(tables)
         table_blocks = tables.map { |t| render_table(t) }
         fkey_lines   = tables.flat_map { |t| t.foreign_keys.map { |fk| render_foreign_key(fk) } }
 

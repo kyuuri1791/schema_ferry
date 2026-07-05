@@ -14,11 +14,10 @@ module SchemaFerry
       Target::RidgepoleRunner.new(@config.target_url).run(schemafile, dry_run: false)
     end
 
-    # Returns the generated Schemafile content without touching the target DB.
     def schemafile
-      raw    = Source::MysqlReader.new(@config.source_url).read_all
-      tables = Converter::SchemaConverter.new(@config).convert(raw)
-      Target::RidgepoleWriter.new.write(tables)
+      mysql_tables = Source::MysqlReader.new(@config.source_url).read_all
+      pg_tables    = Converter::SchemaConverter.new(@config).convert(mysql_tables)
+      Target::SchemafileRenderer.new.render(pg_tables)
     end
   end
 end
