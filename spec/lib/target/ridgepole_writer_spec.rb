@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe SchemaFerry::RidgepoleWriter do
+RSpec.describe SchemaFerry::Target::RidgepoleWriter do
   include Fixtures
 
   subject(:writer) { described_class.new }

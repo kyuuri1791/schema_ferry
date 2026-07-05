@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-RSpec.describe SchemaFerry::SchemaConverter do
+RSpec.describe SchemaFerry::Converter::SchemaConverter do
   include Fixtures
 
   def make_config(_overrides = {}, &block)
-    config = SchemaFerry::Config.new
+    config = SchemaFerry::DSL::Config.new
     config.instance_eval(&block) if block
     config
   end

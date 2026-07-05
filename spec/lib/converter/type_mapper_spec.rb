@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe SchemaFerry::TypeMapper do
+RSpec.describe SchemaFerry::Converter::TypeMapper do
   subject(:mapper) { described_class.new }
 
   describe "identity mappings" do

@@ -7,18 +7,18 @@ module SchemaFerry
     end
 
     def dry_run
-      RidgepoleRunner.new(@config.target_url).run(schemafile, dry_run: true)
+      Target::RidgepoleRunner.new(@config.target_url).run(schemafile, dry_run: true)
     end
 
     def apply!
-      RidgepoleRunner.new(@config.target_url).run(schemafile, dry_run: false)
+      Target::RidgepoleRunner.new(@config.target_url).run(schemafile, dry_run: false)
     end
 
     # Returns the generated Schemafile content without touching the target DB.
     def schemafile
-      raw    = MysqlReader.new(@config.source_url).read_all
-      tables = SchemaConverter.new(@config).convert(raw)
-      RidgepoleWriter.new.write(tables)
+      raw    = Source::MysqlReader.new(@config.source_url).read_all
+      tables = Converter::SchemaConverter.new(@config).convert(raw)
+      Target::RidgepoleWriter.new.write(tables)
     end
   end
 end

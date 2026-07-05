@@ -36,7 +36,7 @@ module SchemaFerry
       config     = load_config
       schemafile = Pipeline.new(config).schemafile
       dry_run    = command == "dry-run"
-      output     = RidgepoleRunner.new(config.target_url).run(schemafile, dry_run: dry_run)
+      output     = Target::RidgepoleRunner.new(config.target_url).run(schemafile, dry_run: dry_run)
 
       @stdout.puts output
       @stdout.puts summary(schemafile, output, dry_run: dry_run)
@@ -72,7 +72,7 @@ module SchemaFerry
       path = @config_path || DEFAULT_CONFIG_PATH
       raise ConfigError, "definition file not found: #{path}" unless File.exist?(path)
 
-      Config.load_file(path)
+      DSL::Config.load_file(path)
     end
 
     def parser

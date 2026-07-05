@@ -21,6 +21,6 @@ require_relative "schema_ferry/pipeline"
 
 module SchemaFerry
   def self.define(&)
-    Pipeline.new(Config.build(&))
+    Pipeline.new(DSL::Config.build(&))
   end
 end

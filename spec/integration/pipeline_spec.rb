@@ -187,7 +187,7 @@ RSpec.describe SchemaFerry::Pipeline do
     end
 
     before(:all) do
-      SchemaFerry::ConnectionRegistry.with_connection(POSTGRES_URL) do |conn|
+      SchemaFerry::Source::ConnectionRegistry.with_connection(POSTGRES_URL) do |conn|
         conn.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
       end
       SchemaFerry.define do
@@ -210,11 +210,11 @@ RSpec.describe SchemaFerry::Pipeline do
   end
 
   def with_pg(&)
-    SchemaFerry::ConnectionRegistry.with_connection(POSTGRES_URL, &)
+    SchemaFerry::Source::ConnectionRegistry.with_connection(POSTGRES_URL, &)
   end
 
   def setup_source_schema
-    SchemaFerry::ConnectionRegistry.with_connection(MYSQL_URL) do |conn|
+    SchemaFerry::Source::ConnectionRegistry.with_connection(MYSQL_URL) do |conn|
       conn.create_table :users, force: true do |t|
         t.string  :name,     null: false
         t.string  :email,    null: false
@@ -259,13 +259,13 @@ RSpec.describe SchemaFerry::Pipeline do
   end
 
   def teardown_source_schema
-    SchemaFerry::ConnectionRegistry.with_connection(MYSQL_URL) do |conn|
+    SchemaFerry::Source::ConnectionRegistry.with_connection(MYSQL_URL) do |conn|
       all_tables.each { |t| conn.drop_table(t, if_exists: true) }
     end
   end
 
   def teardown_target_schema
-    SchemaFerry::ConnectionRegistry.with_connection(POSTGRES_URL) do |conn|
+    SchemaFerry::Source::ConnectionRegistry.with_connection(POSTGRES_URL) do |conn|
       all_tables.each { |t| conn.drop_table(t, if_exists: true) }
     end
   end

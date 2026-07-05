@@ -77,11 +77,11 @@ RSpec.describe SchemaFerry::CLI do
       RUBY
     end
     let(:pipeline) { instance_double(SchemaFerry::Pipeline, schemafile: schemafile) }
-    let(:runner)   { instance_double(SchemaFerry::RidgepoleRunner) }
+    let(:runner)   { instance_double(SchemaFerry::Target::RidgepoleRunner) }
 
     before do
       allow(SchemaFerry::Pipeline).to receive(:new).and_return(pipeline)
-      allow(SchemaFerry::RidgepoleRunner).to receive(:new).and_return(runner)
+      allow(SchemaFerry::Target::RidgepoleRunner).to receive(:new).and_return(runner)
     end
 
     it "dry-run prints the diff and a summary" do

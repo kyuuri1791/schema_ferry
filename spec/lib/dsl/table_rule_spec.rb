@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe SchemaFerry::TableRule do
+RSpec.describe SchemaFerry::DSL::TableRule do
   subject(:rule) { described_class.new(:users) }
 
   it "stores the table name as a string" do
