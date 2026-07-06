@@ -22,8 +22,6 @@ module Fixtures
       columns: Array(columns).map(&:to_s),
       unique:  unique,
       using:   nil,
-      opclass: nil,
-      where:   nil,
       lengths: nil,
       orders:  nil,
       **opts
@@ -81,7 +79,6 @@ module Fixtures
       unique:  false,
       using:   nil,
       type:    nil,
-      where:   nil,
       lengths: nil,
       orders:  nil
     }.merge(opts)

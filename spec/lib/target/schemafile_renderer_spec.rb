@@ -157,25 +157,11 @@ RSpec.describe SchemaFerry::Target::SchemafileRenderer do
       expect(output).to include('t.index ["email"], name: "index_users_on_email", unique: true')
     end
 
-    it "renders partial index with where clause" do
-      idx   = build_index(name: "idx_active", columns: ["status"], where: "active = 1")
-      table = build_table(name: "users", indexes: [idx])
-      output = render(table)
-      expect(output).to include('where: "active = 1"')
-    end
-
     it "renders index with using clause" do
       idx   = build_index(name: "idx_data_gin", columns: ["data"], using: :gin)
       table = build_table(name: "items", indexes: [idx])
       output = render(table)
       expect(output).to include("using: :gin")
-    end
-
-    it "renders index opclass" do
-      idx   = build_index(name: "idx_body_trgm", columns: ["body"], using: :gin, opclass: :gin_trgm_ops)
-      table = build_table(name: "posts", indexes: [idx])
-      output = render(table)
-      expect(output).to include('t.index ["body"], name: "idx_body_trgm", using: :gin, opclass: :gin_trgm_ops')
     end
 
     it "renders index column orders" do

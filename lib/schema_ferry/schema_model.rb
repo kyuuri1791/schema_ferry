@@ -32,8 +32,6 @@ module SchemaFerry
     :columns, # Array<String>
     :unique,  # Boolean
     :using,   # Symbol | nil
-    :opclass, # Symbol | Hash | nil (PostgreSQL operator class, e.g. :gin_trgm_ops)
-    :where,   # String | nil
     :lengths, # Integer | Hash | nil
     :orders,  # Symbol | Hash | nil
     keyword_init: true

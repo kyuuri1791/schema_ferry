@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-06
+
+### Removed
+
+- `add_index` — declaring a PostgreSQL-only index existed solely as a replacement path for skipped FULLTEXT indexes, but that undermined the tool's own "faithful mirror of MySQL" design: it was the only way to declare something with no MySQL counterpart. It also had its own bug — an index with a `where:` clause was dropped and re-created on every single run, because PostgreSQL rewrites predicates (operators, casts, parenthesization) when it stores them, so a declared clause can never reliably match what's on the target. A `pg_trgm` GIN index (or similar) is still the way to replace a FULLTEXT index, but only by hand, once you're fully cut over to PostgreSQL.
+
+### Changed
+
+- `FULLTEXT`/`SPATIAL` indexes and spatial columns (`POINT`, `GEOMETRY`, `POLYGON`, `LINESTRING`, …) now raise `ConversionError` instead of printing a warning and silently excluding themselves. A warning is easy to miss in an unattended cron run's output; raising fails the same way any other error does — a non-zero exit status a monitor can catch. Exclude them explicitly with `ignore_index` / `ignore_column`.
+
+### Fixed
+
+- `POINT` columns are now caught and raise `ConversionError`, like other unsupported spatial types (`GEOMETRY`/`POLYGON`/`LINESTRING`/etc.), instead of silently becoming a meaningless `integer NOT NULL` column. ActiveRecord's mysql2 adapter misreports `POINT` as plain `:integer` — the string "point" happens to match an unanchored `/int/i` pattern deep in ActiveRecord's generic type map — unlike the others, which already came through as an unrecognized type and were rejected.
+
 ## [0.1.3] - 2026-07-06
 
 ### Fixed

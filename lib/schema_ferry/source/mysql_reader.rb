@@ -64,7 +64,6 @@ module SchemaFerry
             unique:  idx.unique,
             using:   idx.using,
             type:    idx.type, # :fulltext | :spatial | nil
-            where:   idx.where,
             lengths: idx.lengths.presence,
             orders:  idx.orders.presence
           }

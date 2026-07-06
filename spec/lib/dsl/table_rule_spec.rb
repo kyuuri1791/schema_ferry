@@ -43,22 +43,4 @@ RSpec.describe SchemaFerry::DSL::TableRule do
       expect(rule.ignored_indexes).to contain_exactly("idx_old")
     end
   end
-
-  describe "#add_index" do
-    it "records an extra index declaration" do
-      rule.add_index(:body, using: :gin, opclass: :gin_trgm_ops)
-      expect(rule.extra_indexes)
-        .to eq([{ columns: ["body"], options: { using: :gin, opclass: :gin_trgm_ops } }])
-    end
-
-    it "accepts multiple columns" do
-      rule.add_index(:kind, :status, unique: true)
-      expect(rule.extra_indexes.first[:columns]).to eq(%w[kind status])
-    end
-
-    it "rejects unknown options" do
-      expect { rule.add_index(:body, lengths: 10) }
-        .to raise_error(SchemaFerry::ConfigError, /unknown option/)
-    end
-  end
 end

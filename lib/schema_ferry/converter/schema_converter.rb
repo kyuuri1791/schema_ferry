@@ -8,6 +8,21 @@ module SchemaFerry
       # PostgreSQL has no FULLTEXT/SPATIAL equivalent that ridgepole can express.
       UNSUPPORTED_INDEX_TYPES = %i[fulltext spatial].freeze
 
+      # MySQL spatial column types have no PostgreSQL equivalent (that would
+      # require PostGIS, which schema_ferry does not manage). Most of these
+      # already raise TypeMapper's ConversionError, since ActiveRecord's
+      # mysql2 adapter reports them as an unrecognized type (nil). POINT is
+      # the sole exception: AR matches sql_type against an unanchored /int/i
+      # regex (see register_class_with_limit in
+      # ActiveRecord::ConnectionAdapters::AbstractAdapter#initialize_type_map),
+      # which matches "point" as a substring — so it's misreported as plain
+      # :integer instead. Without this check it would sail through as a
+      # meaningless integer column instead of raising. It must be caught
+      # here, by sql_type, and raised explicitly — the same failure mode as
+      # any other unsupported type, not a warning that's easy to miss in a
+      # cron log.
+      MISDETECTED_SPATIAL_SQL_TYPE = /\Apoint\b/i
+
       def initialize(config)
         @column_converter = ColumnConverter.new(TypeMapper.new(config.global_type_overrides))
         @table_rules      = config.table_rules
@@ -82,47 +97,46 @@ module SchemaFerry
       def convert_columns(raw_columns, table_name, rule, ignored, fk_columns)
         raw_columns
           .reject { |c| ignored.include?(c[:name]) }
-          .map    { |c| @column_converter.call(c, table_name, rule, fk_columns) }
+          .map do |c|
+            check_misdetected_spatial_type!(c, table_name, rule)
+            @column_converter.call(c, table_name, rule, fk_columns)
+          end
+      end
+
+      # map_column already lets a rule override any column's type before it
+      # ever reaches this check (ColumnConverter#call skips TypeMapper
+      # entirely when an override is present), same as for any other type.
+      def check_misdetected_spatial_type!(raw, table_name, rule)
+        return unless raw[:sql_type].to_s.match?(MISDETECTED_SPATIAL_SQL_TYPE)
+        return if rule&.column_type_overrides&.key?(raw[:name])
+
+        raise ConversionError, "#{table_name}.#{raw[:name]}: MySQL #{raw[:sql_type]} columns have no " \
+                               "PostgreSQL equivalent without PostGIS, which schema_ferry does not " \
+                               "manage. Exclude it with ignore_column :#{raw[:name]}."
       end
 
       def convert_indexes(raw_indexes, table_name, rule, ignored)
-        converted = raw_indexes
-                    .reject { |idx| rule&.ignored_indexes&.include?(idx[:name]) }
-                    .reject { |idx| skip_unsupported_index?(idx, table_name) }
-                    .reject { |idx| idx[:columns].intersect?(ignored) }
-                    .map    { |idx| build_index_schema(idx, table_name) }
-        converted + extra_indexes(rule, table_name)
-      end
-
-      def extra_indexes(rule, table_name)
-        (rule&.extra_indexes || []).map do |extra|
-          opts = extra[:options]
-          name = opts[:name] || "index_#{table_name}_on_#{extra[:columns].join("_")}"
-          IndexSchema.new(
-            name:    IdentifierShortener.shorten(name.to_s, kind: "index", table: table_name),
-            columns: extra[:columns],
-            unique:  opts[:unique],
-            using:   opts[:using],
-            opclass: opts[:opclass],
-            where:   opts[:where],
-            orders:  opts[:order],
-            lengths: nil
-          )
-        end
+        raw_indexes
+          .reject { |idx| rule&.ignored_indexes&.include?(idx[:name]) }
+          .reject { |idx| idx[:columns].intersect?(ignored) }
+          .map do |idx|
+            check_unsupported_index_type!(idx, table_name)
+            build_index_schema(idx, table_name)
+          end
       end
 
       def convert_foreign_keys(raw)
         surviving_foreign_keys(raw).map { |fk| build_fk_schema(fk) }
       end
 
-      def skip_unsupported_index?(idx, table_name)
-        return false unless UNSUPPORTED_INDEX_TYPES.include?(idx[:type])
+      # A warning here would be easy to miss in an unattended cron run.
+      # Raising makes this failure show up the same way as any other error:
+      # a non-zero exit status a monitor can catch.
+      def check_unsupported_index_type!(idx, table_name)
+        return unless UNSUPPORTED_INDEX_TYPES.include?(idx[:type])
 
-        emit_warning "#{table_name}: skipping #{idx[:type].to_s.upcase} index #{idx[:name].inspect} " \
-                     "(no PostgreSQL equivalent). Declare a replacement with add_index " \
-                     "(e.g. add_index :col, using: :gin, opclass: :gin_trgm_ops) and " \
-                     "silence this warning with ignore_index :#{idx[:name]}."
-        true
+        raise ConversionError, "#{table_name}: #{idx[:type].to_s.upcase} index #{idx[:name].inspect} " \
+                               "has no PostgreSQL equivalent. Exclude it with ignore_index :#{idx[:name]}."
       end
 
       def build_index_schema(raw, table_name)
@@ -131,8 +145,6 @@ module SchemaFerry
           columns: raw[:columns],
           unique:  raw[:unique],
           using:   raw[:using],
-          opclass: nil, # MySQL has no operator classes
-          where:   raw[:where],
           lengths: raw[:lengths],
           orders:  raw[:orders]
         )

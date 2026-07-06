@@ -6,7 +6,7 @@ You're migrating a production MySQL database to PostgreSQL. Moving the data take
 - **Sensible defaults, fully customizable** — built-in type mappings handle most cases; override anything with a few DSL rules
 - **Safe to iterate** — `dry_run` shows the exact changes that would be applied, before touching anything
 
-schema_ferry is designed to run repeatedly (e.g. via cron). Data migration is out of scope — pair it with [pgloader](https://pgloader.io/) (one-shot bulk copy) or CDC replication (AWS DMS, [Debezium](https://debezium.io/), …), which load rows into the tables schema_ferry has created.
+schema_ferry is designed to run repeatedly (e.g. via cron). Data migration is out of scope — pair it with [pgloader](https://github.com/dimitri/pgloader) (one-shot bulk copy) or CDC replication (AWS DMS, [Debezium](https://github.com/debezium/debezium), …), which load rows into the tables schema_ferry keeps in sync.
 
 ## Requirements
 
@@ -43,7 +43,7 @@ pipeline.apply!   # applies the schema to PostgreSQL
 
 There is also `pipeline.schemafile`, which returns the generated schema as a string without connecting to the target.
 
-`apply!` makes the target match the generated schema — including **dropping** columns and indexes that are not part of it. Before running against a target that holds data, read [Destructive changes](#destructive-changes) below.
+`apply!` makes the target match the generated schema — including **dropping** columns and indexes from the target that are not part of it. Before running against a target that holds data, read [Coverage](#coverage) below.
 
 ### CLI
 
@@ -86,11 +86,23 @@ end
 
 The same rules work in a CLI definition file.
 
-### Destructive changes
+### Coverage
 
-`apply!` delegates to [ridgepole](https://github.com/ridgepole/ridgepole), which makes the target match the generated schema. For tables it manages, **columns and indexes that are missing from the generated schema are dropped from the target** (e.g. a column excluded via `ignore_column`, or an index created by hand on the target — declare those with `add_index` instead). Tables absent from the generated schema are themselves left untouched.
+schema_ferry syncs what can be done automatically — exactly where possible, or as an approximation with a warning where it isn't — and leaves the rest to add by hand, later. Where there's no reasonable equivalent at all, it raises instead of guessing. Add the column or index by hand once you're fully cut over to PostgreSQL — not before, since `apply!` delegates to [ridgepole](https://github.com/ridgepole/ridgepole), which drops anything missing from the generated schema on a managed table, including something added by hand as a stand-in — but never drops a table that's absent from it entirely.
 
 Review `dry_run` output before your first `apply!` and whenever you change the conversion rules — those are the moments that introduce drops. Unattended runs in between only mirror changes made to the MySQL schema; if even those need review, schedule `dry-run` instead and apply by hand.
+
+Normalized automatically, with a warning to stderr:
+
+- **Index prefix lengths** (`KEY (col(10))`) are dropped silently — PostgreSQL indexes the full column.
+- **Identifiers over 63 bytes** (MySQL allows 64): index and foreign key names are shortened deterministically (`first 54 bytes + _ + 8-char digest`), so repeated runs stay stable. Overlong table names are only warned about — rename those yourself.
+- **Zero-date defaults** (`'0000-00-00 00:00:00'`) are invalid in PostgreSQL and are dropped.
+- **BIGINT UNSIGNED columns on a foreign key** (either side) become signed `bigint` instead of `numeric(20)` — a numeric column cannot reference a bigint primary key. Values above 2⁶³−1 will not fit, the same trade-off as for `BIGINT UNSIGNED` primary keys.
+
+Raises instead:
+
+- **FULLTEXT indexes** — PostgreSQL has no equivalent construct (a `pg_trgm` GIN index is a common approximation, but it's not the same search semantics, so schema_ferry doesn't create one for you). Because of the drop behavior above, you can't pre-create a replacement during the sync period — add one once you're fully cut over to PostgreSQL. `ignore_index` them.
+- **Spatial columns** (`POINT`, `GEOMETRY`, `POLYGON`, `LINESTRING`, …) — PostgreSQL has no built-in equivalent without PostGIS, which schema_ferry does not manage. `ignore_column` them.
 
 ## DSL reference
 
@@ -113,7 +125,6 @@ Review `dry_run` output before your first `apply!` and whenever you change the c
 | `map_column :col, type: :type, default: value` | …and give it an explicit default |
 | `ignore_column :col` | Exclude a column |
 | `ignore_index :index_name` | Exclude an index |
-| `add_index :col, ...options` | Declare a PostgreSQL-only index (options: `name`, `unique`, `using`, `opclass`, `where`, `order`) |
 
 Ignoring a column also drops indexes and foreign keys that reference it. Renaming tables or columns is out of scope — clean up names after the cutover with a regular migration.
 
@@ -128,7 +139,7 @@ Ignoring a column also drops indexes and foreign keys that reference it. Renamin
 | `TINYINT(1)` | `boolean` | see the caveat above if a column holds more than 0/1 |
 | `TINYINT`…`BIGINT` (signed) | `smallint` / `integer` / `bigint` | widths normalized to PostgreSQL's three integer sizes |
 | `TINYINT`…`INT` `UNSIGNED` | one size larger | e.g. `INT UNSIGNED` → `bigint` |
-| `BIGINT UNSIGNED` | `numeric(20)` | PostgreSQL has no unsigned 8-byte integer; emitted with a warning. Columns on a foreign key become signed `bigint` instead — see below |
+| `BIGINT UNSIGNED` | `numeric(20)` | PostgreSQL has no unsigned 8-byte integer; emitted with a warning. Columns on a foreign key become signed `bigint` instead — see above |
 | `FLOAT` / `DOUBLE` | `double precision` | |
 | `DECIMAL(p,s)` | `numeric(p,s)` | |
 | `DATETIME` / `TIMESTAMP` | `timestamp` | use `map_type :datetime, to: :timestamptz` for `timestamptz` |
@@ -138,16 +149,6 @@ Ignoring a column also drops indexes and foreign keys that reference it. Renamin
 | `ENUM(...)` | `varchar` | add `enum_as :check` to enforce the values with a CHECK constraint |
 
 `map_type` / `map_column` take Rails-style abstract type symbols (`:string`, `:integer`, `:jsonb`, …), not raw SQL type names.
-
-### Automatic adjustments (with warnings)
-
-Some MySQL constructs have no PostgreSQL equivalent. schema_ferry handles them and prints a `[schema_ferry]` warning to stderr:
-
-- **FULLTEXT / SPATIAL indexes** are skipped. Declare a replacement with `add_index` (e.g. `add_index :body, using: :gin, opclass: :gin_trgm_ops` — requires `CREATE EXTENSION pg_trgm` on the target, done once by hand) and silence the warning with `ignore_index`. Don't create replacement indexes by hand: anything not in the generated schema is dropped on the next run.
-- **Index prefix lengths** (`KEY (col(10))`) are dropped silently — PostgreSQL indexes the full column.
-- **Identifiers over 63 bytes** (MySQL allows 64): index and foreign key names are shortened deterministically (`first 54 bytes + _ + 8-char digest`), so repeated runs stay stable. Overlong table names are only warned about — rename those yourself.
-- **Zero-date defaults** (`'0000-00-00 00:00:00'`) are invalid in PostgreSQL and are dropped.
-- **BIGINT UNSIGNED columns on a foreign key** (either side) become signed `bigint` instead of `numeric(20)` — a numeric column cannot reference a bigint primary key. Values above 2⁶³−1 will not fit, the same trade-off as for `BIGINT UNSIGNED` primary keys.
 
 ## How it works
 

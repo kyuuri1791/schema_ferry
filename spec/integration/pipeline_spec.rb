@@ -20,6 +20,10 @@ RSpec.describe SchemaFerry::Pipeline do
     SchemaFerry.define do
       source MYSQL_URL
       target POSTGRES_URL
+      table(:posts) do
+        ignore_column :location
+        ignore_index :index_posts_on_body
+      end
     end
   end
 
@@ -32,11 +36,38 @@ RSpec.describe SchemaFerry::Pipeline do
     end
   end
 
+  describe "POINT columns" do
+    it "raises ConversionError unless the column is explicitly ignored" do
+      pipeline_without_ignore = SchemaFerry.define do
+        source MYSQL_URL
+        target POSTGRES_URL
+      end
+      expect { pipeline_without_ignore.schemafile }
+        .to raise_error(SchemaFerry::ConversionError, /point columns have no PostgreSQL equivalent/)
+    end
+  end
+
+  describe "FULLTEXT indexes" do
+    it "raises ConversionError unless the index is explicitly ignored" do
+      pipeline_without_ignore = SchemaFerry.define do
+        source MYSQL_URL
+        target POSTGRES_URL
+        table(:posts) { ignore_column :location }
+      end
+      expect { pipeline_without_ignore.schemafile }
+        .to raise_error(SchemaFerry::ConversionError, /FULLTEXT index .* has no PostgreSQL equivalent/)
+    end
+  end
+
   describe "#apply!" do
     before(:all) do
       SchemaFerry.define do
         source MYSQL_URL
         target POSTGRES_URL
+        table(:posts) do
+          ignore_column :location
+          ignore_index :index_posts_on_body
+        end
       end.apply!
     end
 
@@ -143,9 +174,15 @@ RSpec.describe SchemaFerry::Pipeline do
       end
     end
 
-    it "skips FULLTEXT indexes" do
+    it "excludes the ignored FULLTEXT index from output" do
       with_pg do |conn|
         expect(conn.indexes("posts").map(&:name)).not_to include("index_posts_on_body")
+      end
+    end
+
+    it "excludes the ignored POINT column from output" do
+      with_pg do |conn|
+        expect(conn.columns("posts").map(&:name)).not_to include("location")
       end
     end
 
@@ -188,6 +225,10 @@ RSpec.describe SchemaFerry::Pipeline do
         source MYSQL_URL
         target POSTGRES_URL
         map_type :datetime, to: :timestamptz
+        table(:posts) do
+          ignore_column :location
+          ignore_index :index_posts_on_body
+        end
       end
     end
 
@@ -196,6 +237,10 @@ RSpec.describe SchemaFerry::Pipeline do
         source MYSQL_URL
         target POSTGRES_URL
         map_type :datetime, to: :timestamptz
+        table(:posts) do
+          ignore_column :location
+          ignore_index :index_posts_on_body
+        end
       end.apply!
     end
 
@@ -217,6 +262,10 @@ RSpec.describe SchemaFerry::Pipeline do
         source MYSQL_URL
         target POSTGRES_URL
         enum_as :check
+        table(:posts) do
+          ignore_column :location
+          ignore_index :index_posts_on_body
+        end
       end
     end
 
@@ -225,6 +274,10 @@ RSpec.describe SchemaFerry::Pipeline do
         source MYSQL_URL
         target POSTGRES_URL
         enum_as :check
+        table(:posts) do
+          ignore_column :location
+          ignore_index :index_posts_on_body
+        end
       end.apply!
     end
 
@@ -237,38 +290,6 @@ RSpec.describe SchemaFerry::Pipeline do
 
     it "is idempotent: a second run reports no change" do
       expect(check_pipeline.dry_run).to include("No change")
-    end
-  end
-
-  describe "extra indexes declared via add_index" do
-    let(:trgm_pipeline) do
-      SchemaFerry.define do
-        source MYSQL_URL
-        target POSTGRES_URL
-        table(:posts) { add_index :body, using: :gin, opclass: :gin_trgm_ops }
-      end
-    end
-
-    before(:all) do
-      SchemaFerry::Source::ConnectionRegistry.with_connection(POSTGRES_URL) do |conn|
-        conn.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
-      end
-      SchemaFerry.define do
-        source MYSQL_URL
-        target POSTGRES_URL
-        table(:posts) { add_index :body, using: :gin, opclass: :gin_trgm_ops }
-      end.apply!
-    end
-
-    it "creates the declared index on the target" do
-      with_pg do |conn|
-        idx = conn.indexes("posts").find { |i| i.name == "index_posts_on_body" }
-        expect(idx.using).to eq(:gin)
-      end
-    end
-
-    it "keeps the declared index across runs (idempotent)" do
-      expect(trgm_pipeline.dry_run).to include("No change")
     end
   end
 
@@ -298,6 +319,7 @@ RSpec.describe SchemaFerry::Pipeline do
         t.bigint  :user_id,  null: false
         t.string  :title,    null: false
         t.text    :body
+        t.column  :location, "point"
         t.timestamps null: false
       end
       conn.add_index :posts, :body, type: :fulltext, name: "index_posts_on_body"

@@ -24,7 +24,7 @@ RSpec.describe SchemaFerry::Converter::SchemaConverter do
         ],
         indexes:      [
           { name: "index_users_on_name", columns: ["name"], unique: true,
-            using: nil, where: nil, lengths: nil, orders: nil }
+            using: nil, lengths: nil, orders: nil }
         ],
         foreign_keys: []
       ),
@@ -94,33 +94,6 @@ RSpec.describe SchemaFerry::Converter::SchemaConverter do
       result  = converter.convert(raw_tables)
       users   = result.find { |t| t.name == "users" }
       expect(users.indexes).to be_empty
-    end
-  end
-
-  describe "extra indexes declared via add_index" do
-    let(:config) do
-      make_config do
-        table :posts do
-          add_index :body, using: :gin, opclass: :gin_trgm_ops
-          add_index :kind, :status, name: "idx_kind_status", unique: true, where: "status > 0"
-        end
-      end
-    end
-
-    let(:raw_tables) do
-      [build_raw_table(name: "posts", columns: [build_raw_column(name: "body", type: :text)])]
-    end
-
-    it "appends the declared index with an auto-generated name" do
-      idx = converter.convert(raw_tables).first.indexes.find { |i| i.columns == ["body"] }
-      expect(idx.name).to eq("index_posts_on_body")
-      expect([idx.using, idx.opclass]).to eq(%i[gin gin_trgm_ops])
-    end
-
-    it "respects explicit name and options" do
-      idx = converter.convert(raw_tables).first.indexes.find { |i| i.name == "idx_kind_status" }
-      expect(idx.columns).to eq(%w[kind status])
-      expect([idx.unique, idx.where]).to eq([true, "status > 0"])
     end
   end
 
@@ -319,11 +292,9 @@ RSpec.describe SchemaFerry::Converter::SchemaConverter do
       )]
     end
 
-    it "skips them with a warning" do
-      expect do
-        posts = converter.convert(raw_tables).first
-        expect(posts.indexes).to be_empty
-      end.to output(/FULLTEXT index "ft_body"/).to_stderr
+    it "raises ConversionError" do
+      expect { converter.convert(raw_tables) }
+        .to raise_error(SchemaFerry::ConversionError, /FULLTEXT index "ft_body" has no PostgreSQL equivalent/)
     end
 
     context "when the index is explicitly ignored" do
@@ -331,8 +302,72 @@ RSpec.describe SchemaFerry::Converter::SchemaConverter do
         make_config { table(:posts) { ignore_index :ft_body } }
       end
 
-      it "skips silently" do
-        expect { converter.convert(raw_tables) }.not_to output.to_stderr
+      it "excludes it without raising" do
+        posts = converter.convert(raw_tables).first
+        expect(posts.indexes).to be_empty
+      end
+    end
+
+    context "when its column is ignored" do
+      let(:config) do
+        make_config { table(:posts) { ignore_column :body } }
+      end
+
+      it "excludes it without raising" do
+        posts = converter.convert(raw_tables).first
+        expect(posts.indexes).to be_empty
+      end
+    end
+  end
+
+  describe "spatial columns" do
+    let(:raw_tables) do
+      [build_raw_table(
+        name:    "places",
+        columns: [
+          build_raw_column(name: "name", type: :string, sql_type: "varchar(255)"),
+          # ActiveRecord's mysql2 adapter misreports POINT as plain :integer;
+          # only sql_type reveals what it actually is.
+          build_raw_column(name: "location", type: :integer, sql_type: "point")
+        ]
+      )]
+    end
+
+    it "raises ConversionError for POINT columns, despite AR reporting them as :integer" do
+      expect { converter.convert(raw_tables) }
+        .to raise_error(SchemaFerry::ConversionError, /point columns have no PostgreSQL equivalent/)
+    end
+
+    context "when the column is explicitly ignored" do
+      let(:config) { make_config { table(:places) { ignore_column :location } } }
+
+      it "excludes it without raising" do
+        places = converter.convert(raw_tables).first
+        expect(places.columns.map(&:name)).to eq(["name"])
+      end
+    end
+
+    context "when the column has a map_column override" do
+      let(:config) { make_config { table(:places) { map_column :location, type: :binary } } }
+
+      it "uses the override instead of raising" do
+        places = converter.convert(raw_tables).first
+        location = places.columns.find { |c| c.name == "location" }
+        expect(location.type).to eq(:binary)
+      end
+    end
+
+    # Other spatial types aren't specially handled: ActiveRecord's mysql2
+    # adapter reports them as an unrecognized type (nil), which is already
+    # caught by TypeMapper's general "unknown MySQL type" safety net. Only
+    # POINT needs its own check, because it slips past that net.
+    %w[geometry linestring polygon multipoint multilinestring multipolygon geometrycollection].each do |sql_type|
+      it "raises ConversionError for #{sql_type.upcase} columns, same as any other unrecognized type" do
+        raw = [build_raw_table(
+          name:    "places",
+          columns: [build_raw_column(name: "geo", type: nil, sql_type: sql_type)]
+        )]
+        expect { converter.convert(raw) }.to raise_error(SchemaFerry::ConversionError, /unknown mysql ar type/i)
       end
     end
   end

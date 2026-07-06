@@ -26,7 +26,7 @@ Metrics/AbcSize:
     - "spec/**/*"
 
 Metrics/ClassLength:
-  Max: 130
+  Max: 145
 
 Metrics/PerceivedComplexity:
   Max: 10

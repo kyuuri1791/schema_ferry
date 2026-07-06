@@ -113,8 +113,6 @@ module SchemaFerry
         parts = ["name: #{idx.name.inspect}"]
         parts << "unique: true" if idx.unique
         parts << "using: #{idx.using.inspect}" if idx.using
-        parts << "opclass: #{idx.opclass.inspect}" if idx.opclass
-        parts << "where: #{idx.where.inspect}" if idx.where
         parts << "order: #{idx.orders.inspect}" if idx.orders
         "  t.index #{cols}, #{parts.join(", ")}"
       end
