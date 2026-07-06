@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-07-06
+
+### Fixed
+
+- The 0.1.2 fix only covered the two reported cases, not the underlying pattern: any type/option combination that PostgreSQL can't actually reproduce back to ActiveRecord causes `apply!` to re-run `change_column` forever, because ridgepole compares the declaration against a state it can never match.
+  - `DOUBLE` columns (`:float`) are read with `limit: 53` (the type's internal bit width), but a PostgreSQL column never reports a limit back. `limit` is no longer emitted for `:float` columns.
+  - Plain `DECIMAL` columns with a default (not just ones bumped from `BIGINT UNSIGNED`) now render their default as a string, matching the form ActiveRecord's schema dumper uses for decimal defaults — the same fix from 0.1.2, generalized to `TypeMapper` so it applies to every decimal column instead of only the unsigned-bigint conversion path.
+
 ## [0.1.2] - 2026-07-06
 
 ### Fixed

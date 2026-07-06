@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "bigdecimal"
+
 RSpec.describe SchemaFerry::Converter::TypeMapper do
   subject(:mapper) { described_class.new }
 
@@ -45,6 +47,13 @@ RSpec.describe SchemaFerry::Converter::TypeMapper do
       _, opts = mapper.call(:string, limit: 255)
       expect(opts[:limit]).to eq(255)
     end
+
+    it "strips limit from :float columns" do
+      # MySQL DOUBLE is read by AR as limit: 53 (its internal bit width), but
+      # a PG column never reports a limit back — declaring one never converges.
+      _, opts = mapper.call(:float, limit: 53)
+      expect(opts).not_to have_key(:limit)
+    end
   end
 
   describe "integer width normalization (PG has smallint/integer/bigint only)" do
@@ -83,6 +92,21 @@ RSpec.describe SchemaFerry::Converter::TypeMapper do
     it "keeps non-zero scale" do
       _, opts = mapper.call(:decimal, precision: 10, scale: 2)
       expect(opts[:scale]).to eq(2)
+    end
+  end
+
+  describe "decimal default stringification" do
+    it "renders a BigDecimal default as a string, matching AR's schema dumper" do
+      # ridgepole compares against the dumped form, which is always a string
+      # for decimal columns (e.g. `default: "0.0"`) — a BigDecimal/Integer
+      # default never matches it and gets re-applied on every run.
+      _, opts = mapper.call(:decimal, precision: 12, scale: 2, default: BigDecimal("0.0"))
+      expect(opts[:default]).to eq("0.0")
+    end
+
+    it "leaves a nil default alone" do
+      _, opts = mapper.call(:decimal, precision: 12, scale: 2, default: nil)
+      expect(opts[:default]).to be_nil
     end
   end
 

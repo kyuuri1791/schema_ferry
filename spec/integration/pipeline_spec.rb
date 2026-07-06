@@ -120,6 +120,21 @@ RSpec.describe SchemaFerry::Pipeline do
       end
     end
 
+    it "carries over a plain DECIMAL column's default" do
+      with_pg do |conn|
+        balance = conn.columns("users").find { |c| c.name == "balance" }
+        expect(balance.sql_type).to eq("numeric(12,2)")
+        expect(balance.default).to eq(BigDecimal("0.0"))
+      end
+    end
+
+    it "strips the limit from DOUBLE columns" do
+      with_pg do |conn|
+        score = conn.columns("users").find { |c| c.name == "score" }
+        expect(score.sql_type).to eq("double precision")
+      end
+    end
+
     it "maps BIGINT UNSIGNED foreign key columns to bigint and keeps the foreign key" do
       with_pg do |conn|
         order_id = conn.columns("order_items").find { |c| c.name == "order_id" }
@@ -270,6 +285,8 @@ RSpec.describe SchemaFerry::Pipeline do
         t.integer :counter,  unsigned: true
         t.bigint  :visits,   unsigned: true
         t.bigint  :points,   unsigned: true, default: 0
+        t.decimal :balance,  precision: 12, scale: 2, default: "0.0"
+        t.float   :score
         t.column  :kind, "enum('active','archived')", default: "active", null: false
         t.json    :metadata
         t.timestamps null: false

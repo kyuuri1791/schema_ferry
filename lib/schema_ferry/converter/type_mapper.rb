@@ -3,9 +3,10 @@
 module SchemaFerry
   module Converter
     class TypeMapper
-      # PG has no limit concept for text/binary/bigint; drop the MySQL-derived
-      # limits.
-      LIMIT_STRIPPED_TYPES = %i[text binary bigint].freeze
+      # PG has no limit concept for text/binary/bigint/float; drop the
+      # MySQL-derived limits (float's limit: 53 is DOUBLE's internal bit
+      # width, not something AR ever reads back from a PG column).
+      LIMIT_STRIPPED_TYPES = %i[text binary bigint float].freeze
 
       # PG's default timestamp precision is 6. Spelling it out makes ridgepole
       # see a diff against the PG export (which omits it) on every run.
@@ -43,8 +44,15 @@ module SchemaFerry
         pg_type, adjusted = normalize_integer(adjusted) if pg_type == :integer
         adjusted.delete(:limit) if LIMIT_STRIPPED_TYPES.include?(pg_type)
         strip_default_precision(pg_type, adjusted)
-        # PG numeric(20) equals numeric(20,0) and is exported without scale.
-        adjusted[:scale] = nil if pg_type == :decimal && adjusted[:scale]&.zero?
+        if pg_type == :decimal
+          # PG numeric(20) equals numeric(20,0) and is exported without scale.
+          adjusted[:scale] = nil if adjusted[:scale]&.zero?
+          # AR's schema dumper renders decimal defaults as a string (e.g.
+          # `default: "0"`), not a numeric literal. ridgepole compares against
+          # that dumped form, so a BigDecimal/Integer default never matches
+          # and gets re-applied on every run.
+          adjusted[:default] = adjusted[:default]&.to_s
+        end
 
         [pg_type, adjusted]
       end
