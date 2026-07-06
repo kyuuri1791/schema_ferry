@@ -113,6 +113,13 @@ RSpec.describe SchemaFerry::Pipeline do
       end
     end
 
+    it "carries over a BIGINT UNSIGNED default onto the decimal(20,0) column" do
+      with_pg do |conn|
+        points = conn.columns("users").find { |c| c.name == "points" }
+        expect(points.default).to eq(0)
+      end
+    end
+
     it "maps BIGINT UNSIGNED foreign key columns to bigint and keeps the foreign key" do
       with_pg do |conn|
         order_id = conn.columns("order_items").find { |c| c.name == "order_id" }
@@ -153,6 +160,39 @@ RSpec.describe SchemaFerry::Pipeline do
         expect(kind.sql_type).to eq("character varying")
         expect(kind.default).to eq("active")
       end
+    end
+
+    it "is idempotent: a second run reports no change" do
+      expect(pipeline.dry_run).to include("No change")
+    end
+  end
+
+  describe "timestamptz via map_type" do
+    let(:timestamptz_pipeline) do
+      SchemaFerry.define do
+        source MYSQL_URL
+        target POSTGRES_URL
+        map_type :datetime, to: :timestamptz
+      end
+    end
+
+    before(:all) do
+      SchemaFerry.define do
+        source MYSQL_URL
+        target POSTGRES_URL
+        map_type :datetime, to: :timestamptz
+      end.apply!
+    end
+
+    it "converts datetime columns to timestamptz" do
+      with_pg do |conn|
+        col = conn.columns("users").find { |c| c.name == "created_at" }
+        expect(col.sql_type).to eq("timestamp with time zone")
+      end
+    end
+
+    it "is idempotent: a second run reports no change" do
+      expect(timestamptz_pipeline.dry_run).to include("No change")
     end
   end
 
@@ -229,6 +269,7 @@ RSpec.describe SchemaFerry::Pipeline do
         t.integer :status,   default: 0
         t.integer :counter,  unsigned: true
         t.bigint  :visits,   unsigned: true
+        t.bigint  :points,   unsigned: true, default: 0
         t.column  :kind, "enum('active','archived')", default: "active", null: false
         t.json    :metadata
         t.timestamps null: false

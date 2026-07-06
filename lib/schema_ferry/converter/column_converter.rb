@@ -45,7 +45,11 @@ module SchemaFerry
         else
           emit_warning "column #{raw[:name].inspect}: BIGINT UNSIGNED has no PostgreSQL " \
                        "integer equivalent; mapped to decimal(20, 0)."
-          raw.merge(type: :decimal, limit: nil, precision: 20, scale: 0)
+          # AR's schema dumper renders decimal defaults as a string (e.g.
+          # `default: "0"`), not a numeric literal — match that representation
+          # or ridgepole re-applies the default on every run.
+          new_default = raw[:default]&.to_s
+          raw.merge(type: :decimal, limit: nil, precision: 20, scale: 0, default: new_default)
         end
       end
 

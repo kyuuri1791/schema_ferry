@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-07-06
+
+### Fixed
+
+- `map_type :datetime, to: :timestamptz` no longer produces a schema that never converges: ActiveRecord's PostgreSQL adapter silently ignores a `precision:` option on `:timestamptz` columns (unlike `:datetime`/`:timestamp`/`:time`, where it's honored), so declaring one caused `apply!` to re-run `change_column` on every single run. `precision` is no longer emitted for `:timestamptz` columns.
+- `BIGINT UNSIGNED` columns with a default value (e.g. `DEFAULT 0`) no longer cause `apply!` to re-run `change_column` on every run after the initial `apply!`. The default is now converted to match the string form ActiveRecord's schema dumper uses for decimal defaults, so it matches ridgepole's exported state instead of diffing against it forever.
+
 ## [0.1.1] - 2026-07-06
 
 ### Fixed

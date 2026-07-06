@@ -9,8 +9,14 @@ module SchemaFerry
 
       # PG's default timestamp precision is 6. Spelling it out makes ridgepole
       # see a diff against the PG export (which omits it) on every run.
-      DEFAULT_PRECISION_TYPES = %i[datetime timestamptz time].freeze
+      DEFAULT_PRECISION_TYPES = %i[datetime time].freeze
       PG_DEFAULT_PRECISION    = 6
+
+      # ActiveRecord's PostgreSQL adapter never honors a precision option on
+      # :timestamptz (only :datetime/:timestamp/:time do — see
+      # ActiveRecord::ConnectionAdapters::SchemaStatements#type_to_sql).
+      # Declaring one is always a lie, so it must never be emitted.
+      NO_PRECISION_TYPES = %i[timestamptz].freeze
 
       DEFAULTS = {
         json: :jsonb
@@ -58,6 +64,7 @@ module SchemaFerry
       end
 
       def strip_default_precision(pg_type, options)
+        options[:precision] = nil if NO_PRECISION_TYPES.include?(pg_type)
         return unless DEFAULT_PRECISION_TYPES.include?(pg_type)
 
         options[:precision] = nil if options[:precision] == PG_DEFAULT_PRECISION

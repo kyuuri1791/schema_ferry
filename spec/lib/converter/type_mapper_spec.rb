@@ -97,10 +97,16 @@ RSpec.describe SchemaFerry::Converter::TypeMapper do
       expect(opts[:precision]).to eq(3)
     end
 
-    it "drops precision 6 from :timestamptz overrides" do
+    it "always drops precision from :timestamptz overrides" do
+      # ActiveRecord's PostgreSQL adapter never honors a precision option on
+      # :timestamptz (unlike :datetime/:timestamp/:time); declaring one
+      # produces a schema ridgepole can never converge on.
       tz_mapper = described_class.new(datetime: :timestamptz)
-      pg_type, opts = tz_mapper.call(:datetime, precision: 6)
-      expect([pg_type, opts[:precision]]).to eq([:timestamptz, nil])
+      _, opts_at_default = tz_mapper.call(:datetime, precision: 6)
+      _, opts_at_zero    = tz_mapper.call(:datetime, precision: 0)
+      _, opts_nonzero    = tz_mapper.call(:datetime, precision: 3)
+      expect([opts_at_default[:precision], opts_at_zero[:precision], opts_nonzero[:precision]])
+        .to eq([nil, nil, nil])
     end
   end
 

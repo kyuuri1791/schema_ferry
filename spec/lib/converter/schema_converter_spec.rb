@@ -211,6 +211,22 @@ RSpec.describe SchemaFerry::Converter::SchemaConverter do
     it "does not widen signed integers" do
       expect([column("plain").type, column("plain").limit]).to eq([:integer, nil])
     end
+
+    context "when a BIGINT UNSIGNED column has a default" do
+      let(:raw_tables) do
+        [build_raw_table(
+          name:    "counters",
+          columns: [build_raw_column(name: "points", type: :integer, sql_type: "bigint unsigned",
+                                     limit: 8, default: 0)]
+        )]
+      end
+
+      it "renders the default as a string, matching how AR's schema dumper renders decimal defaults" do
+        col = nil
+        expect { col = column("points") }.to output(/BIGINT UNSIGNED/).to_stderr
+        expect(col.default).to eq("0")
+      end
+    end
   end
 
   describe "BIGINT UNSIGNED columns on a foreign key" do
