@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-06
+
+### Fixed
+
+- `apply!` no longer fails with `PG::DatatypeMismatch` when a `BIGINT UNSIGNED` column takes part in a foreign key — the standard Rails-on-MySQL primary key layout. Such columns are now mapped to signed `bigint` (matching the referenced primary key) instead of `numeric(20)`, with a warning.
+- Foreign keys whose column follows the Rails naming convention (`<table>_id`) are no longer dropped and re-created on every run: the generated `add_foreign_key` now omits `column:` for conventional names, matching ridgepole's export format.
+
 ## [0.1.0] - 2026-07-06
 
 ### Added

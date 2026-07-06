@@ -16,14 +16,14 @@ module SchemaFerry
       end
 
       def convert(raw_tables)
-        raw_tables
-          .reject { |t| @ignored_tables.include?(t[:name]) }
-          .map    { |t| convert_table(t) }
+        kept_tables = raw_tables.reject { |t| @ignored_tables.include?(t[:name]) }
+        fk_columns  = collect_fk_columns(kept_tables)
+        kept_tables.map { |t| convert_table(t, fk_columns.fetch(t[:name], [])) }
       end
 
       private
 
-      def convert_table(raw)
+      def convert_table(raw, fk_columns)
         rule    = @table_rules[raw[:name]]
         ignored = rule&.ignored_columns || []
         IdentifierShortener.warn_long_table_name(raw[:name])
@@ -34,11 +34,30 @@ module SchemaFerry
           pk_type:           convert_pk_type(raw),
           pk_limit:          raw[:pk_limit],
           comment:           raw[:comment],
-          columns:           convert_columns(raw[:columns], raw[:name], rule, ignored),
+          columns:           convert_columns(raw[:columns], raw[:name], rule, ignored, fk_columns),
           indexes:           convert_indexes(raw[:indexes], raw[:name], rule, ignored),
-          foreign_keys:      convert_foreign_keys(raw[:foreign_keys], ignored),
+          foreign_keys:      convert_foreign_keys(raw),
           check_constraints: build_check_constraints(raw, rule, ignored)
         )
+      end
+
+      # Columns on either side of a surviving foreign key must land in
+      # PostgreSQL's integer type family: a numeric(20, 0) column cannot
+      # reference a bigint key.
+      def collect_fk_columns(raw_tables)
+        raw_tables.each_with_object({}) do |raw, acc|
+          surviving_foreign_keys(raw).each do |fk|
+            (acc[raw[:name]] ||= []) << fk[:column]
+            (acc[fk[:to_table]] ||= []) << fk[:primary_key]
+          end
+        end
+      end
+
+      def surviving_foreign_keys(raw)
+        ignored = @table_rules[raw[:name]]&.ignored_columns || []
+        raw[:foreign_keys]
+          .reject { |fk| @ignored_tables.include?(fk[:to_table]) }
+          .reject { |fk| ignored.include?(fk[:column]) }
       end
 
       # MySQL BIGINT comes through AR as :integer with limit 8, so the sql_type
@@ -60,10 +79,10 @@ module SchemaFerry
         end
       end
 
-      def convert_columns(raw_columns, table_name, rule, ignored)
+      def convert_columns(raw_columns, table_name, rule, ignored, fk_columns)
         raw_columns
           .reject { |c| ignored.include?(c[:name]) }
-          .map    { |c| @column_converter.call(c, table_name, rule) }
+          .map    { |c| @column_converter.call(c, table_name, rule, fk_columns) }
       end
 
       def convert_indexes(raw_indexes, table_name, rule, ignored)
@@ -92,11 +111,8 @@ module SchemaFerry
         end
       end
 
-      def convert_foreign_keys(raw_fkeys, ignored)
-        raw_fkeys
-          .reject { |fk| @ignored_tables.include?(fk[:to_table]) }
-          .reject { |fk| ignored.include?(fk[:column]) }
-          .map    { |fk| build_fk_schema(fk) }
+      def convert_foreign_keys(raw)
+        surviving_foreign_keys(raw).map { |fk| build_fk_schema(fk) }
       end
 
       def skip_unsupported_index?(idx, table_name)

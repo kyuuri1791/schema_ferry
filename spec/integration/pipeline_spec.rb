@@ -113,6 +113,14 @@ RSpec.describe SchemaFerry::Pipeline do
       end
     end
 
+    it "maps BIGINT UNSIGNED foreign key columns to bigint and keeps the foreign key" do
+      with_pg do |conn|
+        order_id = conn.columns("order_items").find { |c| c.name == "order_id" }
+        expect(order_id.sql_type).to eq("bigint")
+        expect(conn.foreign_keys("order_items").map(&:to_table)).to include("orders")
+      end
+    end
+
     it "skips FULLTEXT indexes" do
       with_pg do |conn|
         expect(conn.indexes("posts").map(&:name)).not_to include("index_posts_on_body")
@@ -246,6 +254,23 @@ RSpec.describe SchemaFerry::Pipeline do
         t.bigint :group_id
       end
 
+      # The standard Rails-on-MySQL layout: BIGINT UNSIGNED primary keys with
+      # a real FOREIGN KEY between them (raw SQL — AR cannot declare them).
+      conn.execute("DROP TABLE IF EXISTS order_items, orders")
+      conn.execute(<<~SQL)
+        CREATE TABLE orders (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          total BIGINT UNSIGNED
+        )
+      SQL
+      conn.execute(<<~SQL)
+        CREATE TABLE order_items (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          order_id BIGINT UNSIGNED NOT NULL,
+          CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders (id)
+        )
+      SQL
+
       conn.create_table :events, force: true do |t|
         t.datetime :logged_at, precision: nil, default: -> { "CURRENT_TIMESTAMP" }
       end
@@ -255,7 +280,7 @@ RSpec.describe SchemaFerry::Pipeline do
   end
 
   def all_tables
-    %i[posts users api_keys memberships events]
+    %i[order_items orders posts users api_keys memberships events]
   end
 
   def teardown_source_schema

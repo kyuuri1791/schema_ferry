@@ -213,6 +213,63 @@ RSpec.describe SchemaFerry::Converter::SchemaConverter do
     end
   end
 
+  describe "BIGINT UNSIGNED columns on a foreign key" do
+    let(:raw_tables) do
+      [
+        build_raw_table(
+          name:         "posts",
+          pk_sql_type:  "bigint unsigned",
+          columns:      [
+            build_raw_column(name: "user_id", type: :integer, sql_type: "bigint unsigned", limit: 8)
+          ],
+          foreign_keys: [build_raw_fk(from_table: "posts", to_table: "users", column: "user_id")]
+        ),
+        build_raw_table(name: "users", pk_sql_type: "bigint unsigned")
+      ]
+    end
+
+    it "maps the referencing column to signed bigint so it matches the referenced primary key" do
+      col = nil
+      expect { col = converter.convert(raw_tables).first.columns.first }
+        .to output(/takes part in a foreign key/).to_stderr
+      expect([col.type, col.limit, col.precision]).to eq([:bigint, nil, nil])
+    end
+
+    context "when the foreign key references a non-primary-key column" do
+      let(:raw_tables) do
+        [
+          build_raw_table(
+            name:         "posts",
+            columns:      [
+              build_raw_column(name: "user_ref", type: :integer, sql_type: "bigint unsigned", limit: 8)
+            ],
+            foreign_keys: [build_raw_fk(from_table: "posts", to_table: "users",
+                                        column: "user_ref", primary_key: "ref")]
+          ),
+          build_raw_table(
+            name:    "users",
+            columns: [build_raw_column(name: "ref", type: :integer, sql_type: "bigint unsigned", limit: 8)]
+          )
+        ]
+      end
+
+      it "maps the referenced column to signed bigint as well" do
+        ref = nil
+        expect { ref = converter.convert(raw_tables).last.columns.first }
+          .to output(/takes part in a foreign key/).to_stderr
+        expect(ref.type).to eq(:bigint)
+      end
+    end
+
+    it "keeps decimal(20, 0) when the foreign key is dropped by ignore_table" do
+      config.ignore_table :users
+      col = nil
+      expect { col = converter.convert(raw_tables).first.columns.first }
+        .to output(/decimal\(20, 0\)/).to_stderr
+      expect([col.type, col.precision]).to eq([:decimal, 20])
+    end
+  end
+
   describe "primary key type" do
     def pk_type_for(pk_sql_type)
       raw = [build_raw_table(name: "t", pk_type: :integer, pk_sql_type: pk_sql_type)]

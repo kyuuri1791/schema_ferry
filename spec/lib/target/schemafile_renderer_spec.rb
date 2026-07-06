@@ -197,11 +197,19 @@ RSpec.describe SchemaFerry::Target::SchemafileRenderer do
       expect(fk_pos).to be > table_pos
     end
 
-    it "renders basic foreign key" do
+    it "omits column: when it follows the Rails convention (matches ridgepole's export)" do
       fk     = build_fk(from_table: "posts", to_table: "users", column: "user_id")
       table  = build_table(name: "posts", foreign_keys: [fk])
       output = render(table)
-      expect(output).to include('add_foreign_key "posts", "users", column: "user_id"')
+      expect(output).to include('add_foreign_key "posts", "users"')
+      expect(output).not_to include("column:")
+    end
+
+    it "renders column: when it differs from the convention" do
+      fk     = build_fk(from_table: "posts", to_table: "users", column: "author_id")
+      table  = build_table(name: "posts", foreign_keys: [fk])
+      output = render(table)
+      expect(output).to include('add_foreign_key "posts", "users", column: "author_id"')
     end
 
     it "renders on_delete option" do

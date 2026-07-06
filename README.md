@@ -128,7 +128,7 @@ Ignoring a column also drops indexes and foreign keys that reference it. Renamin
 | `TINYINT(1)` | `boolean` | see the caveat above if a column holds more than 0/1 |
 | `TINYINT`…`BIGINT` (signed) | `smallint` / `integer` / `bigint` | widths normalized to PostgreSQL's three integer sizes |
 | `TINYINT`…`INT` `UNSIGNED` | one size larger | e.g. `INT UNSIGNED` → `bigint` |
-| `BIGINT UNSIGNED` | `numeric(20)` | PostgreSQL has no unsigned 8-byte integer; emitted with a warning |
+| `BIGINT UNSIGNED` | `numeric(20)` | PostgreSQL has no unsigned 8-byte integer; emitted with a warning. Columns on a foreign key become signed `bigint` instead — see below |
 | `FLOAT` / `DOUBLE` | `double precision` | |
 | `DECIMAL(p,s)` | `numeric(p,s)` | |
 | `DATETIME` / `TIMESTAMP` | `timestamp` | use `map_type :datetime, to: :timestamptz` for `timestamptz` |
@@ -147,6 +147,7 @@ Some MySQL constructs have no PostgreSQL equivalent. schema_ferry handles them a
 - **Index prefix lengths** (`KEY (col(10))`) are dropped silently — PostgreSQL indexes the full column.
 - **Identifiers over 63 bytes** (MySQL allows 64): index and foreign key names are shortened deterministically (`first 54 bytes + _ + 8-char digest`), so repeated runs stay stable. Overlong table names are only warned about — rename those yourself.
 - **Zero-date defaults** (`'0000-00-00 00:00:00'`) are invalid in PostgreSQL and are dropped.
+- **BIGINT UNSIGNED columns on a foreign key** (either side) become signed `bigint` instead of `numeric(20)` — a numeric column cannot reference a bigint primary key. Values above 2⁶³−1 will not fit, the same trade-off as for `BIGINT UNSIGNED` primary keys.
 
 ## How it works
 

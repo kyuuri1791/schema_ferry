@@ -125,13 +125,20 @@ module SchemaFerry
 
       def render_foreign_key(foreign_key)
         parts = [foreign_key.from_table.inspect, foreign_key.to_table.inspect]
-        parts << "column: #{foreign_key.column.inspect}" if foreign_key.column
+        parts << "column: #{foreign_key.column.inspect}" if custom_fk_column?(foreign_key)
         non_default_pk = foreign_key.primary_key && foreign_key.primary_key != "id"
         parts << "primary_key: #{foreign_key.primary_key.inspect}" if non_default_pk
         parts << "name: #{foreign_key.name.inspect}"               if foreign_key.name
         parts << "on_update: #{foreign_key.on_update.inspect}"     if foreign_key.on_update
         parts << "on_delete: #{foreign_key.on_delete.inspect}"     if foreign_key.on_delete
         "add_foreign_key #{parts.join(", ")}"
+      end
+
+      # ridgepole's PostgreSQL export omits column: when it follows the Rails
+      # convention, and it compares foreign keys by their literal options —
+      # emitting column: for conventional names re-creates the FK every run.
+      def custom_fk_column?(foreign_key)
+        foreign_key.column && foreign_key.column != "#{foreign_key.to_table.singularize}_id"
       end
     end
   end
