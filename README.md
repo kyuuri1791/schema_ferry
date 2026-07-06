@@ -6,7 +6,7 @@ You're migrating a production MySQL database to PostgreSQL. Moving the data take
 - **Sensible defaults, fully customizable** — built-in type mappings handle most cases; override anything with a few DSL rules
 - **Safe to iterate** — `dry_run` shows the exact changes that would be applied, before touching anything
 
-schema_ferry is designed to run repeatedly — as a cron job, or a step in whatever CI/CD pipeline you already have (Jenkins, Step Functions, GitHub Actions, …). Data migration is out of scope — pair it with [pgloader](https://github.com/dimitri/pgloader) (one-shot bulk copy) or CDC replication (AWS DMS, [Debezium](https://github.com/debezium/debezium), …), which load rows into the tables schema_ferry keeps in sync.
+schema_ferry is designed to run repeatedly — as a step in whatever CI/CD pipeline you already have (Jenkins, Step Functions, GitHub Actions, …). Data migration is out of scope — pair it with [pgloader](https://github.com/dimitri/pgloader) (one-shot bulk copy) or CDC replication (AWS DMS, [Debezium](https://github.com/debezium/debezium), …), which load rows into the tables schema_ferry keeps in sync.
 
 ## Requirements
 
@@ -47,7 +47,7 @@ There is also `pipeline.schemafile`, which returns the generated schema as a str
 
 ### CLI
 
-For cron jobs, as a step in an existing pipeline, or whenever you'd rather not write a runner script, there is a small CLI. Put the same DSL (without the `SchemaFerry.define` wrapper) in a `Ferryfile`:
+As a step in an existing pipeline, or whenever you'd rather not write a runner script, there is a small CLI. Put the same DSL (without the `SchemaFerry.define` wrapper) in a `Ferryfile`:
 
 ```ruby
 source "mysql2://user:password@host:3306/source_db"
