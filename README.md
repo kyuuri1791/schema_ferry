@@ -134,9 +134,9 @@ Ignoring a column also drops indexes and foreign keys that reference it. Renamin
 
 ## Handoff
 
-schema_ferry syncs what can be done automatically — exactly where possible, or as an approximation with a warning where it isn't — and leaves the rest to add by hand, later. Where there's no reasonable equivalent at all, it raises instead of guessing.
-
 MySQL is the source of truth: `apply!` makes PostgreSQL match the generated schema exactly, so anything else on the target — including a column or index added by hand as an early stand-in — gets dropped. That's intentional. Add the real thing by hand once you're fully cut over to PostgreSQL, not before. The one exception is a table absent from the generated schema entirely — that's left alone.
+
+Within that generated schema, schema_ferry syncs what can be done automatically — exactly where possible, or as an approximation with a warning where it isn't — and leaves the rest to add by hand, later. Where there's no reasonable equivalent at all, it raises instead of guessing.
 
 Normalized automatically, with a warning to stderr:
 
