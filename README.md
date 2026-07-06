@@ -43,7 +43,7 @@ pipeline.apply!   # applies the schema to PostgreSQL
 
 There is also `pipeline.schemafile`, which returns the generated schema as a string without connecting to the target.
 
-`apply!` makes the target match the generated schema — including **dropping** columns and indexes from the target that are not part of it. Before running against a target that holds data, read [Coverage](#coverage) below.
+`apply!` makes the target match the generated schema — including **dropping** columns and indexes from the target that are not part of it. Before running against a target that holds data, read [Handoff](#handoff) below.
 
 ### CLI
 
@@ -121,7 +121,7 @@ Ignoring a column also drops indexes and foreign keys that reference it. Renamin
 | `TINYINT(1)` | `boolean` | see the caveat above if a column holds more than 0/1 |
 | `TINYINT`…`BIGINT` (signed) | `smallint` / `integer` / `bigint` | widths normalized to PostgreSQL's three integer sizes |
 | `TINYINT`…`INT` `UNSIGNED` | one size larger | e.g. `INT UNSIGNED` → `bigint` |
-| `BIGINT UNSIGNED` | `numeric(20)` | PostgreSQL has no unsigned 8-byte integer; emitted with a warning. Columns on a foreign key become signed `bigint` instead — see [Coverage](#coverage) below |
+| `BIGINT UNSIGNED` | `numeric(20)` | PostgreSQL has no unsigned 8-byte integer; emitted with a warning. Columns on a foreign key become signed `bigint` instead — see [Handoff](#handoff) below |
 | `FLOAT` / `DOUBLE` | `double precision` | |
 | `DECIMAL(p,s)` | `numeric(p,s)` | |
 | `DATETIME` / `TIMESTAMP` | `timestamp` | use `map_type :datetime, to: :timestamptz` for `timestamptz` |
@@ -132,7 +132,7 @@ Ignoring a column also drops indexes and foreign keys that reference it. Renamin
 
 `map_type` / `map_column` take Rails-style abstract type symbols (`:string`, `:integer`, `:jsonb`, …), not raw SQL type names.
 
-## Coverage
+## Handoff
 
 schema_ferry syncs what can be done automatically — exactly where possible, or as an approximation with a warning where it isn't — and leaves the rest to add by hand, later. Where there's no reasonable equivalent at all, it raises instead of guessing. Add the column or index by hand once you're fully cut over to PostgreSQL — not before, since `apply!` delegates to [ridgepole](https://github.com/ridgepole/ridgepole), which drops anything missing from the generated schema on a managed table, including something added by hand as a stand-in — but never drops a table that's absent from it entirely.
 
