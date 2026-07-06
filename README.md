@@ -84,7 +84,7 @@ pipeline = SchemaFerry.define do
 end
 ```
 
-The same rules work in a CLI definition file.
+The same rules work in a `Ferryfile`.
 
 ## DSL reference
 
@@ -134,7 +134,9 @@ Ignoring a column also drops indexes and foreign keys that reference it. Renamin
 
 ## Handoff
 
-schema_ferry syncs what can be done automatically — exactly where possible, or as an approximation with a warning where it isn't — and leaves the rest to add by hand, later. Where there's no reasonable equivalent at all, it raises instead of guessing. Add the column or index by hand once you're fully cut over to PostgreSQL — not before, since `apply!` delegates to [ridgepole](https://github.com/ridgepole/ridgepole), which drops anything missing from the generated schema on a managed table, including something added by hand as a stand-in — but never drops a table that's absent from it entirely.
+schema_ferry syncs what can be done automatically — exactly where possible, or as an approximation with a warning where it isn't — and leaves the rest to add by hand, later. Where there's no reasonable equivalent at all, it raises instead of guessing.
+
+MySQL is the source of truth: `apply!` makes PostgreSQL match the generated schema exactly, so anything else on the target — including a column or index added by hand as an early stand-in — gets dropped. That's intentional. Add the real thing by hand once you're fully cut over to PostgreSQL, not before. The one exception is a table absent from the generated schema entirely — that's left alone.
 
 Review `dry_run` output before your first `apply!` and whenever you change the conversion rules — those are the moments that introduce drops. Unattended runs in between only mirror changes made to the MySQL schema; if even those need review, schedule `dry-run` instead and apply by hand.
 
