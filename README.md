@@ -138,8 +138,6 @@ schema_ferry syncs what can be done automatically — exactly where possible, or
 
 MySQL is the source of truth: `apply!` makes PostgreSQL match the generated schema exactly, so anything else on the target — including a column or index added by hand as an early stand-in — gets dropped. That's intentional. Add the real thing by hand once you're fully cut over to PostgreSQL, not before. The one exception is a table absent from the generated schema entirely — that's left alone.
 
-Review `dry_run` output before your first `apply!` and whenever you change the conversion rules — those are the moments that introduce drops. Unattended runs in between only mirror changes made to the MySQL schema; if even those need review, schedule `dry-run` instead and apply by hand.
-
 Normalized automatically, with a warning to stderr:
 
 - **Index prefix lengths** (`KEY (col(10))`) are dropped silently — PostgreSQL indexes the full column.
