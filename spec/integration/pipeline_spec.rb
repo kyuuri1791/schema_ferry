@@ -446,12 +446,21 @@ RSpec.describe SchemaFerry::Pipeline do
     end
   end
 
+  # No host app to protect here (unlike SchemaFerry::Source::MysqlReader's own
+  # connection handling), so plain ActiveRecord::Base is fine for fixture setup.
+  def with_connection(url)
+    ActiveRecord::Base.establish_connection(url)
+    yield ActiveRecord::Base.connection
+  ensure
+    ActiveRecord::Base.remove_connection
+  end
+
   def with_pg(&)
-    SchemaFerry::Source::ConnectionRegistry.with_connection(POSTGRES_URL, &)
+    with_connection(POSTGRES_URL, &)
   end
 
   def setup_source_schema
-    SchemaFerry::Source::ConnectionRegistry.with_connection(MYSQL_URL) do |conn|
+    with_connection(MYSQL_URL) do |conn|
       conn.create_table :users, force: true do |t|
         t.string  :name,     null: false
         t.string  :email,    null: false
@@ -569,13 +578,13 @@ RSpec.describe SchemaFerry::Pipeline do
   end
 
   def teardown_source_schema
-    SchemaFerry::Source::ConnectionRegistry.with_connection(MYSQL_URL) do |conn|
+    with_connection(MYSQL_URL) do |conn|
       all_tables.each { |t| conn.drop_table(t, if_exists: true) }
     end
   end
 
   def teardown_target_schema
-    SchemaFerry::Source::ConnectionRegistry.with_connection(POSTGRES_URL) do |conn|
+    with_connection(POSTGRES_URL) do |conn|
       all_tables.each { |t| conn.drop_table(t, if_exists: true) }
     end
   end

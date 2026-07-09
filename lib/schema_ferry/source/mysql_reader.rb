@@ -8,7 +8,7 @@ module SchemaFerry
       end
 
       def read_all
-        ConnectionRegistry.with_connection(@url) do |conn|
+        with_connection do |conn|
           conn.tables.sort.map { |table_name| read_table(conn, table_name) }
         end
       rescue ConnectionError
@@ -18,6 +18,28 @@ module SchemaFerry
       end
 
       private
+
+      # Uses a fresh ConnectionHandler per call so the pool is fully isolated
+      # from ActiveRecord::Base and any host Rails app connections.
+      # AR 7.2+ banned anonymous AR subclasses, so we bypass that path entirely.
+      def with_connection
+        handler = ActiveRecord::ConnectionAdapters::ConnectionHandler.new
+        begin
+          pool = handler.establish_connection(@url, owner_name: "schema_ferry")
+          conn = pool.checkout
+          conn.verify!
+        rescue ActiveRecord::ActiveRecordError => e
+          raise ConnectionError, e.message
+        end
+
+        begin
+          yield conn
+        ensure
+          pool.checkin(conn)
+        end
+      ensure
+        handler&.clear_all_connections!
+      end
 
       def read_table(conn, name)
         columns = conn.columns(name)
