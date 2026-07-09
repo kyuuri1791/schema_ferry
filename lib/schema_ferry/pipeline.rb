@@ -12,7 +12,7 @@ module SchemaFerry
     end
 
     def apply!(allow_drops: true)
-      Target::DropGuard.check!(@runner.run(compile_schemafile, dry_run: true)) unless allow_drops
+      Target::DropGuard.check!(dry_run) unless allow_drops
 
       @runner.run(compile_schemafile, dry_run: false)
     end
