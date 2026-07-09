@@ -3,8 +3,6 @@
 module SchemaFerry
   module DSL
     class Config
-      ENUM_MODES = %i[string check].freeze
-
       attr_reader :source_url, :target_url,
                   :global_type_overrides,
                   :table_rules,
@@ -65,8 +63,9 @@ module SchemaFerry
       #   :string — plain varchar, values not enforced (default)
       #   :check  — varchar plus a CHECK constraint restricting the values
       def enum_as(mode)
-        unless ENUM_MODES.include?(mode.to_sym)
-          raise ConfigError, "enum_as accepts #{ENUM_MODES.map(&:inspect).join(" or ")}, got #{mode.inspect}"
+        modes = %i[string check]
+        unless modes.include?(mode.to_sym)
+          raise ConfigError, "enum_as accepts #{modes.map(&:inspect).join(" or ")}, got #{mode.inspect}"
         end
 
         @enum_mode = mode.to_sym

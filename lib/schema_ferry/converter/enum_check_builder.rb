@@ -5,6 +5,8 @@ module SchemaFerry
     # Builds CHECK constraints enforcing MySQL enum values on varchar columns
     # (enum_as :check).
     class EnumCheckBuilder
+      include IdentifierShortenable
+
       def call(raw_table, rule, ignored)
         raw_table[:columns].filter_map do |col|
           next if ignored.include?(col[:name])
@@ -24,8 +26,8 @@ module SchemaFerry
       def build_constraint(table_name, col_name, values)
         CheckConstraintSchema.new(
           expression: expression(col_name, values),
-          name:       IdentifierShortener.shorten("chk_#{table_name}_#{col_name}",
-                                                  kind: "check constraint", table: table_name)
+          name:       shorten_identifier("chk_#{table_name}_#{col_name}",
+                                         kind: "check constraint", table: table_name)
         )
       end
 

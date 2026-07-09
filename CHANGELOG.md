@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `map_column :col, type: :type` is now `column :col, map_type_to: :type`. `map_column` implied a mapping between two columns, which isn't what it does — it overrides one column's own type in place. `column` pairs with the existing `table` block, and `map_type_to:` mirrors `map_type`'s `to:` keyword for the same kind of type override.
 - `apply!` now wraps the whole migration in a single transaction (via ridgepole's `--pre-query`/`--post-query`), so a failure partway through no longer leaves a half-applied schema on the target.
+- A table name over 63 bytes now raises `SchemaFerry::ConversionError` instead of just warning. `apply!` was never actually going to succeed for it anyway — ActiveRecord's own PostgreSQL schema statements reject an over-length `create_table` outright — so the warning was misleading about how far the pipeline would actually get. `ignore_table` it, or rename it in MySQL.
 
 ### Fixed
 

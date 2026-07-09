@@ -3,8 +3,8 @@
 MYSQL_URL    = "mysql2://root:password@127.0.0.1:3307/schema_ferry_source"
 POSTGRES_URL = "postgresql://postgres:password@127.0.0.1:5433/schema_ferry_target"
 
-# Exercises both the >63-byte table-name warning and MySQL's own 64-byte
-# identifier limit, so kept out of every applied pipeline via ignore_table.
+# Exercises both the >63-byte table-name ConversionError and MySQL's own
+# 64-byte identifier limit, so kept out of every applied pipeline via ignore_table.
 LONG_TABLE_NAME = "table_name_over_pg_limit_#{"x" * 39}".freeze
 LONG_FK_NAME    = "fk_reviews_author_ref_over_pg_limit_#{"x" * 28}".freeze
 
@@ -70,23 +70,27 @@ RSpec.describe SchemaFerry::Pipeline do
   end
 
   describe "map_type :json, to: :json" do
-    it "opts out of the default json -> jsonb conversion" do
-      json_pipeline = SchemaFerry.define do
+    let(:json_pipeline) do
+      SchemaFerry.define do
         source MYSQL_URL
         target POSTGRES_URL
         table(:posts) do
           ignore_column :location
           ignore_index :index_posts_on_body
         end
+        ignore_table LONG_TABLE_NAME
         map_type :json, to: :json
       end
+    end
+
+    it "opts out of the default json -> jsonb conversion" do
       expect(json_pipeline.schemafile).to include('t.json "metadata"')
     end
   end
 
   describe "overlong table names" do
-    it "warns without shortening, unlike index/foreign key names" do
-      long_name_pipeline = SchemaFerry.define do
+    let(:long_name_pipeline) do
+      SchemaFerry.define do
         source MYSQL_URL
         target POSTGRES_URL
         table(:posts) do
@@ -94,8 +98,12 @@ RSpec.describe SchemaFerry::Pipeline do
           ignore_index :index_posts_on_body
         end
       end
+    end
+
+    it "raises without shortening, unlike index/foreign key names" do
       expect { long_name_pipeline.schemafile }
-        .to output(/table name #{Regexp.escape(LONG_TABLE_NAME.inspect)} exceeds PostgreSQL's 63-byte/).to_stderr
+        .to raise_error(SchemaFerry::ConversionError,
+                        /table name #{Regexp.escape(LONG_TABLE_NAME.inspect)} exceeds PostgreSQL's 63-byte/)
     end
   end
 

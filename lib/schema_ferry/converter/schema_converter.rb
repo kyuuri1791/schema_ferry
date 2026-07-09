@@ -4,6 +4,7 @@ module SchemaFerry
   module Converter
     class SchemaConverter
       include Warnings
+      include IdentifierShortenable
 
       UNSUPPORTED_INDEX_TYPES = %i[fulltext spatial].freeze
       SPATIAL_SQL_TYPES = /\A(?:geometry|point|linestring|polygon|multipoint|multilinestring|multipolygon|
@@ -27,7 +28,7 @@ module SchemaFerry
       def convert_table(raw, fk_columns)
         rule    = @table_rules[raw[:name]]
         ignored = rule&.ignored_columns || []
-        IdentifierShortener.warn_long_table_name(raw[:name])
+        check_table_name_length!(raw[:name])
 
         TableSchema.new(
           name:              raw[:name],
@@ -40,6 +41,13 @@ module SchemaFerry
           foreign_keys:      convert_foreign_keys(raw),
           check_constraints: build_check_constraints(raw, rule, ignored)
         )
+      end
+
+      def check_table_name_length!(name)
+        return if name.bytesize <= MAX_BYTES
+
+        raise ConversionError, "table name #{name.inspect} exceeds PostgreSQL's #{MAX_BYTES}-byte " \
+                               "identifier limit. Exclude it with ignore_table :#{name}, or rename it in MySQL."
       end
 
       # Columns on either side of a surviving foreign key must land in
@@ -122,7 +130,7 @@ module SchemaFerry
 
       def build_index_schema(raw, table_name)
         IndexSchema.new(
-          name:    IdentifierShortener.shorten(raw[:name], kind: "index", table: table_name),
+          name:    shorten_identifier(raw[:name], kind: "index", table: table_name),
           columns: raw[:columns],
           unique:  raw[:unique],
           using:   raw[:using],
@@ -139,7 +147,7 @@ module SchemaFerry
           primary_key: raw[:primary_key],
           on_update:   raw[:on_update],
           on_delete:   raw[:on_delete],
-          name:        IdentifierShortener.shorten(raw[:name], kind: "foreign key", table: raw[:from_table])
+          name:        shorten_identifier(raw[:name], kind: "foreign key", table: raw[:from_table])
         )
       end
 

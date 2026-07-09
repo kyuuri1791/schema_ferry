@@ -144,7 +144,7 @@ Within that generated schema, schema_ferry syncs what can be done automatically 
 Normalized automatically, with a warning to stderr:
 
 - **Index prefix lengths** (`KEY (col(10))`) are dropped silently — PostgreSQL indexes the full column.
-- **Identifiers over 63 bytes** (MySQL allows 64): index and foreign key names are shortened deterministically (`first 54 bytes + _ + 8-char digest`), so repeated runs stay stable. Overlong table names are only warned about — rename those yourself.
+- **Index and foreign key names over 63 bytes** (MySQL allows 64) are shortened deterministically (`first 54 bytes + _ + 8-char digest`), so repeated runs stay stable.
 - **Zero-date defaults** (`'0000-00-00 00:00:00'`) are invalid in PostgreSQL and are dropped.
 - **BIGINT UNSIGNED columns on a foreign key** (either side) become signed `bigint` instead of `numeric(20)` — a numeric column cannot reference a bigint primary key. Values above 2⁶³−1 will not fit, the same trade-off as for `BIGINT UNSIGNED` primary keys.
 
@@ -152,6 +152,7 @@ Raises instead:
 
 - **FULLTEXT indexes** — PostgreSQL has no equivalent construct (a `pg_trgm` GIN index is a common approximation, but it's not the same search semantics, so schema_ferry doesn't create one for you). Because of the drop behavior above, you can't pre-create a replacement during the sync period — add one once you're fully cut over to PostgreSQL. `ignore_index` them.
 - **Spatial columns** (`POINT`, `GEOMETRY`, `POLYGON`, `LINESTRING`, …) — PostgreSQL has no built-in equivalent without PostGIS, which schema_ferry does not manage. `ignore_column` them.
+- **Table names over 63 bytes** (MySQL allows 64) — unlike index and foreign key names, schema_ferry won't rename a table for you (too invasive to do silently). `ignore_table` it, or rename it in MySQL.
 
 ## How it works
 

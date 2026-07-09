@@ -32,27 +32,17 @@ module SchemaFerry
           comment:      conn.table_comment(name).presence,
           columns:      serialize_columns(columns, pk),
           indexes:      serialize_indexes(conn.indexes(name)),
-          foreign_keys: serialize_foreign_keys(conn.foreign_keys(name), name)
+          foreign_keys: serialize_foreign_keys(conn.foreign_keys(name))
         }
       end
 
-      # A single-column PK is rendered via create_table's id: option, so it is
-      # excluded here. Composite PK columns must stay: primary_key: [...] does
-      # not create them.
       def serialize_columns(columns, primary_key)
+        fields = %i[name type sql_type limit precision scale null default default_function comment]
+        # A single-column PK is rendered via create_table's id: option, so it is
+        # excluded here. Composite PK columns must stay: primary_key: [...] does
+        # not create them.
         columns.reject { |c| c.name == primary_key }.map do |c|
-          {
-            name:             c.name,
-            type:             c.type,
-            sql_type:         c.sql_type,
-            limit:            c.limit,
-            precision:        c.precision,
-            scale:            c.scale,
-            null:             c.null,
-            default:          c.default,
-            default_function: c.default_function,
-            comment:          c.comment
-          }
+          fields.to_h { |field| [field, c.public_send(field)] }
         end
       end
 
@@ -60,28 +50,19 @@ module SchemaFerry
         indexes.map do |idx|
           {
             name:    idx.name,
-            columns: Array(idx.columns),
+            columns: Array(idx.columns), # idx.columns can be an Array or a String
             unique:  idx.unique,
             using:   idx.using,
-            type:    idx.type, # :fulltext | :spatial | nil
+            type:    idx.type,
             lengths: idx.lengths.presence,
             orders:  idx.orders.presence
           }
         end
       end
 
-      def serialize_foreign_keys(fkeys, from_table)
-        fkeys.map do |fk|
-          {
-            from_table:  from_table,
-            to_table:    fk.to_table,
-            column:      fk.column,
-            primary_key: fk.primary_key,
-            on_update:   fk.on_update,
-            on_delete:   fk.on_delete,
-            name:        fk.name
-          }
-        end
+      def serialize_foreign_keys(fkeys)
+        fields = %i[from_table to_table column primary_key on_update on_delete name]
+        fkeys.map { |fk| fields.to_h { |field| [field, fk.public_send(field)] } }
       end
     end
   end

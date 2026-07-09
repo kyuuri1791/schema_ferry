@@ -6,9 +6,9 @@ require "tempfile"
 module SchemaFerry
   module Target
     # Runs ridgepole as a subprocess rather than via Ridgepole::Client:
-    # the client calls ActiveRecord::Base.establish_connection and patches AR
-    # in-process, which would hijack a host Rails app's database connection.
-    # The tempfile exists because the CLI only reads the schema from -f FILE.
+    # Ridgepole::Client calls ActiveRecord::Base.establish_connection and
+    # patches AR in-process, which would hijack a host Rails app's database
+    # connection.
     class RidgepoleRunner
       def initialize(target_url)
         @target_url = target_url
@@ -17,6 +17,7 @@ module SchemaFerry
       def run(schema_content, dry_run: false)
         bin = find_ridgepole!
 
+        # ridgepole only reads the schema from -f FILE.
         Tempfile.create(["schema_ferry_", ".rb"]) do |f|
           f.write(schema_content)
           f.flush
