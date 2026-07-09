@@ -8,21 +8,27 @@ module SchemaFerry
     end
 
     def dry_run
-      @runner.run(schemafile, dry_run: true)
+      @runner.run(compile_schemafile, dry_run: true)
     end
 
     def apply!(allow_drops: true)
-      content = schemafile
+      Target::DropGuard.check!(@runner.run(compile_schemafile, dry_run: true)) unless allow_drops
 
-      Target::DropGuard.check!(@runner.run(content, dry_run: true)) unless allow_drops
-
-      @runner.run(content, dry_run: false)
+      @runner.run(compile_schemafile, dry_run: false)
     end
 
     def schemafile
-      mysql_tables = Source::MysqlReader.new(@config.source_url).read_all
-      pg_tables    = Converter::SchemaConverter.new(@config).convert(mysql_tables)
-      Target::SchemafileRenderer.new.render(pg_tables)
+      compile_schemafile
+    end
+
+    private
+
+    def compile_schemafile
+      @compile_schemafile ||= begin
+        mysql_tables = Source::MysqlReader.new(@config.source_url).read_all
+        pg_tables    = Converter::SchemaConverter.new(@config).convert(mysql_tables)
+        Target::SchemafileRenderer.new.render(pg_tables)
+      end
     end
   end
 end

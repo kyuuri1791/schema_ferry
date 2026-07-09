@@ -14,7 +14,7 @@ RSpec.describe SchemaFerry::Pipeline do
 
   before do
     allow(SchemaFerry::Target::RidgepoleRunner).to receive(:new).and_return(runner)
-    allow(pipeline).to receive(:schemafile).and_return("create_table \"users\" do |t|\nend")
+    allow(pipeline).to receive(:compile_schemafile).and_return("create_table \"users\" do |t|\nend")
   end
 
   describe "#apply!" do
