@@ -109,7 +109,7 @@ The same rules work in a `Ferryfile`.
 | `ignore_column :col` | Exclude a column |
 | `ignore_index :index_name` | Exclude an index |
 
-Ignoring a column also drops indexes and foreign keys that reference it. Renaming tables or columns is out of scope — clean up names after the cutover with a regular migration.
+Ignoring a column also drops indexes and foreign keys that reference it.
 
 **tinyint(1) caveat:** ActiveRecord reads `tinyint(1)` as boolean, including its default (`DEFAULT 2` is read as `true`). If a `tinyint(1)` column actually holds 0/1/2-style values, override both the type and the default: `column :flags, map_type_to: :integer, default: 2`. Without an explicit default, schema_ferry drops the unreliable boolean default and warns.
 
