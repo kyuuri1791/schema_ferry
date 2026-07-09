@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `map_column :col, type: :type` is now `column :col, map_type_to: :type`. `map_column` implied a mapping between two columns, which isn't what it does — it overrides one column's own type in place. `column` pairs with the existing `table` block, and `map_type_to:` mirrors `map_type`'s `to:` keyword for the same kind of type override.
 - `apply!` now wraps the whole migration in a single transaction (via ridgepole's `--pre-query`/`--post-query`), so a failure partway through no longer leaves a half-applied schema on the target.
 
+### Fixed
+
+- A MySQL `MULTIPOINT` column silently passed through as a plain PostgreSQL integer instead of raising. ActiveRecord misdetects `MULTIPOINT` as `:integer`, the same bug that already affected `POINT` — the check only matched `POINT` by name, so `MULTIPOINT` slipped past it. All eight MySQL spatial types (`GEOMETRY`, `POINT`, `LINESTRING`, `POLYGON`, `MULTIPOINT`, `MULTILINESTRING`, `MULTIPOLYGON`, `GEOMETRYCOLLECTION`) are now matched directly by `sql_type`, so they all raise the same explicit "no PostgreSQL equivalent without PostGIS" error instead of some going through a generic "unknown type" message.
+
 ## [0.2.0] - 2026-07-06
 
 ### Removed

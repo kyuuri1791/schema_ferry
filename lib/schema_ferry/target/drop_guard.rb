@@ -12,7 +12,7 @@ module SchemaFerry
         return if drops.empty?
 
         raise DropNotAllowedError,
-              "refused: the diff contains destructive change(s):\n#{drops.join("\n")}"
+              "refused: the diff contains drop(s):\n#{drops.join("\n")}"
       end
     end
   end

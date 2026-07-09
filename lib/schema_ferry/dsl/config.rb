@@ -11,20 +11,24 @@ module SchemaFerry
                   :ignored_tables,
                   :enum_mode
 
-      # Evaluates a definition block and returns a validated Config.
-      def self.build(&block)
-        new.tap do |config|
-          config.instance_eval(&block)
-          config.validate!
+      class << self
+        # Ruby entry point
+        def build(&block)
+          evaluate { |config| config.instance_eval(&block) }
         end
-      end
 
-      # Evaluates a definition file (the DSL body, without the
-      # SchemaFerry.define wrapper) and returns a validated Config.
-      def self.load_file(path)
-        new.tap do |config|
-          config.instance_eval(File.read(path), path.to_s, 1)
-          config.validate!
+        # CLI entry point
+        def load_file(path)
+          evaluate { |config| config.instance_eval(File.read(path), path.to_s, 1) }
+        end
+
+        private
+
+        def evaluate
+          new.tap do |config|
+            yield config
+            config.validate!
+          end
         end
       end
 

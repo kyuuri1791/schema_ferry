@@ -2,7 +2,7 @@
 
 RSpec.describe SchemaFerry::Target::DropGuard do
   describe ".check!" do
-    it "does not raise when the dry-run output has no destructive changes" do
+    it "does not raise when the dry-run output has no drops" do
       output = <<~OUTPUT
         Apply `Schemafile` (dry-run)
         add_column("users", "nickname", :string, {})
@@ -49,7 +49,7 @@ RSpec.describe SchemaFerry::Target::DropGuard do
         .to raise_error(SchemaFerry::DropNotAllowedError, /drop_table/)
     end
 
-    it "lists every destructive change when there are multiple" do
+    it "lists every drop when there are multiple" do
       output = <<~OUTPUT
         remove_column("users", "legacy_field")
         remove_index("posts", name: "index_posts_on_body")

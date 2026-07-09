@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Plain data structs for the converted (PostgreSQL-side) schema: SchemaConverter
+# builds these, SchemafileRenderer reads them.
 module SchemaFerry
   TableSchema = Struct.new(
     :name,              # String

@@ -3,7 +3,6 @@
 require "optparse"
 
 module SchemaFerry
-  # Minimal command-line interface: `schema_ferry <apply|dry-run> [-c FILE]`.
   # #run returns a process exit code instead of calling Kernel#exit so the
   # class stays testable.
   class CLI

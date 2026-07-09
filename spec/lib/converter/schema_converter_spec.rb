@@ -357,17 +357,17 @@ RSpec.describe SchemaFerry::Converter::SchemaConverter do
       end
     end
 
-    # Other spatial types aren't specially handled: ActiveRecord's mysql2
-    # adapter reports them as an unrecognized type (nil), which is already
-    # caught by TypeMapper's general "unknown MySQL type" safety net. Only
-    # POINT needs its own check, because it slips past that net.
-    %w[geometry linestring polygon multipoint multilinestring multipolygon geometrycollection].each do |sql_type|
-      it "raises ConversionError for #{sql_type.upcase} columns, same as any other unrecognized type" do
+    # AR reports most spatial types as nil, but misdetects POINT/MULTIPOINT
+    # as plain :integer — either way, check_spatial_type! raises the same way.
+    { "geometry" => nil, "linestring" => nil, "polygon" => nil, "multipoint" => :integer,
+      "multilinestring" => nil, "multipolygon" => nil, "geometrycollection" => nil }.each do |sql_type, ar_type|
+      it "raises ConversionError for #{sql_type.upcase} columns" do
         raw = [build_raw_table(
           name:    "places",
-          columns: [build_raw_column(name: "geo", type: nil, sql_type: sql_type)]
+          columns: [build_raw_column(name: "geo", type: ar_type, sql_type: sql_type)]
         )]
-        expect { converter.convert(raw) }.to raise_error(SchemaFerry::ConversionError, /unknown mysql ar type/i)
+        expect { converter.convert(raw) }
+          .to raise_error(SchemaFerry::ConversionError, /#{sql_type} columns have no PostgreSQL equivalent/i)
       end
     end
   end

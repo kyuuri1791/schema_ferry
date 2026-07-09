@@ -27,7 +27,7 @@ RSpec.describe SchemaFerry::Pipeline do
       end
     end
 
-    context "when allow_drops is false and the dry-run reports no destructive changes" do
+    context "when allow_drops is false and the dry-run reports no drops" do
       it "runs the real apply after the pre-check" do
         allow(runner).to receive(:run).with(anything, dry_run: true)
                                       .and_return('add_column("users", "x", :string, {})')
@@ -37,7 +37,7 @@ RSpec.describe SchemaFerry::Pipeline do
       end
     end
 
-    context "when allow_drops is false and the dry-run reports a destructive change" do
+    context "when allow_drops is false and the dry-run reports a drop" do
       it "raises DropNotAllowedError without running the real apply" do
         allow(runner).to receive(:run).with(anything, dry_run: true)
                                       .and_return('remove_column("users", "legacy_field")')
