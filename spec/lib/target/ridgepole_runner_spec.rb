@@ -76,6 +76,20 @@ RSpec.describe SchemaFerry::Target::RidgepoleRunner do
           expect(cmd[idx + 1]).to eq("postgresql://localhost/pgdb")
         end
       end
+
+      it "wraps a real apply in a BEGIN/COMMIT transaction" do
+        runner.run("schema content", dry_run: false)
+        expect(Open3).to have_received(:capture3) do |*cmd|
+          expect(cmd).to include("--pre-query", "BEGIN", "--post-query", "COMMIT")
+        end
+      end
+
+      it "does not pass pre/post query flags in dry-run mode" do
+        runner.run("schema content", dry_run: true)
+        expect(Open3).to have_received(:capture3) do |*cmd|
+          expect(cmd).not_to include("--pre-query")
+        end
+      end
     end
   end
 end

@@ -8,21 +8,6 @@ module SchemaFerry
       # PostgreSQL has no FULLTEXT/SPATIAL equivalent that ridgepole can express.
       UNSUPPORTED_INDEX_TYPES = %i[fulltext spatial].freeze
 
-      # MySQL spatial column types have no PostgreSQL equivalent (that would
-      # require PostGIS, which schema_ferry does not manage). Most of these
-      # already raise TypeMapper's ConversionError, since ActiveRecord's
-      # mysql2 adapter reports them as an unrecognized type (nil). POINT is
-      # the sole exception: AR matches sql_type against an unanchored /int/i
-      # regex (see register_class_with_limit in
-      # ActiveRecord::ConnectionAdapters::AbstractAdapter#initialize_type_map),
-      # which matches "point" as a substring — so it's misreported as plain
-      # :integer instead. Without this check it would sail through as a
-      # meaningless integer column instead of raising. It must be caught
-      # here, by sql_type, and raised explicitly — the same failure mode as
-      # any other unsupported type, not a warning that's easy to miss in a
-      # cron log.
-      MISDETECTED_SPATIAL_SQL_TYPE = /\Apoint\b/i
-
       def initialize(config)
         @column_converter = ColumnConverter.new(TypeMapper.new(config.global_type_overrides))
         @table_rules      = config.table_rules
@@ -106,8 +91,11 @@ module SchemaFerry
       # column already lets a rule override any column's type before it
       # ever reaches this check (ColumnConverter#call skips TypeMapper
       # entirely when an override is present), same as for any other type.
+      #
+      # AR misdetects POINT columns as plain :integer (regex substring match
+      # on sql_type), so it must be caught here explicitly instead.
       def check_misdetected_spatial_type!(raw, table_name, rule)
-        return unless raw[:sql_type].to_s.match?(MISDETECTED_SPATIAL_SQL_TYPE)
+        return unless raw[:sql_type].to_s.match?(/\Apoint\b/i)
         return if rule&.column_type_overrides&.key?(raw[:name])
 
         raise ConversionError, "#{table_name}.#{raw[:name]}: MySQL #{raw[:sql_type]} columns have no " \

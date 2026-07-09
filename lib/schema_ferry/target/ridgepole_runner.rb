@@ -22,7 +22,11 @@ module SchemaFerry
           f.flush
 
           cmd = [bin, "--apply", "-c", @target_url, "-f", f.path]
-          cmd << "--dry-run" if dry_run
+          if dry_run
+            cmd << "--dry-run"
+          else
+            cmd += ["--pre-query", "BEGIN", "--post-query", "COMMIT"]
+          end
 
           stdout, stderr, status = Open3.capture3(*cmd)
           raise RidgepoleError, [stdout, stderr].reject { |s| s.strip.empty? }.join("\n") unless status.success?
