@@ -36,7 +36,7 @@ module SchemaFerry
       def call(ar_type, options = {})
         unless KNOWN_TYPES.include?(ar_type)
           raise ConversionError, "Unknown MySQL AR type: #{ar_type.inspect}. " \
-                                 "Use map_type or map_column to specify a PostgreSQL type."
+                                 "Use map_type or column's map_type_to: to specify a PostgreSQL type."
         end
 
         pg_type  = @overrides.fetch(ar_type, ar_type)

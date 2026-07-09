@@ -13,9 +13,7 @@ module SchemaFerry
       MAX_BYTES   = 63
       HASH_LENGTH = 8
 
-      module_function
-
-      def shorten(name, kind:, table:)
+      def self.shorten(name, kind:, table:)
         return name if name.nil? || name.bytesize <= MAX_BYTES
 
         prefix = name.byteslice(0, MAX_BYTES - HASH_LENGTH - 1)
@@ -25,7 +23,7 @@ module SchemaFerry
         short
       end
 
-      def warn_long_table_name(name)
+      def self.warn_long_table_name(name)
         return if name.bytesize <= MAX_BYTES
 
         emit_warning "table name #{name.inspect} exceeds PostgreSQL's #{MAX_BYTES}-byte " \

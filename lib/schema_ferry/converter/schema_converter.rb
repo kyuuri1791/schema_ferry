@@ -103,7 +103,7 @@ module SchemaFerry
           end
       end
 
-      # map_column already lets a rule override any column's type before it
+      # column already lets a rule override any column's type before it
       # ever reaches this check (ColumnConverter#call skips TypeMapper
       # entirely when an override is present), same as for any other type.
       def check_misdetected_spatial_type!(raw, table_name, rule)

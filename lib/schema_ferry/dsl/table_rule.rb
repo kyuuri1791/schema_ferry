@@ -17,8 +17,8 @@ module SchemaFerry
         @ignored_indexes          = []
       end
 
-      def map_column(column_name, type:, default: UNSET)
-        @column_type_overrides[column_name.to_s] = type.to_sym
+      def column(column_name, map_type_to:, default: UNSET)
+        @column_type_overrides[column_name.to_s] = map_type_to.to_sym
         @column_default_overrides[column_name.to_s] = default unless default.equal?(UNSET)
       end
 

@@ -11,8 +11,9 @@ module SchemaFerry
     COMMANDS = %w[apply dry-run].freeze
 
     def initialize(stdout: $stdout, stderr: $stderr)
-      @stdout = stdout
-      @stderr = stderr
+      @stdout      = stdout
+      @stderr      = stderr
+      @allow_drops = true
     end
 
     def run(argv)
@@ -36,7 +37,11 @@ module SchemaFerry
       config     = load_config
       schemafile = Pipeline.new(config).schemafile
       dry_run    = command == "dry-run"
-      output     = Target::RidgepoleRunner.new(config.target_url).run(schemafile, dry_run: dry_run)
+      runner     = Target::RidgepoleRunner.new(config.target_url)
+
+      Target::DropGuard.check!(runner.run(schemafile, dry_run: true)) if command == "apply" && !@allow_drops
+
+      output = runner.run(schemafile, dry_run: dry_run)
 
       @stdout.puts output
       @stdout.puts summary(schemafile, output, dry_run: dry_run)
@@ -79,6 +84,7 @@ module SchemaFerry
       @parser ||= OptionParser.new do |o|
         o.banner = "Usage: schema_ferry <apply|dry-run> [options]"
         o.on("-c", "--config FILE", "Definition file (default: #{DEFAULT_CONFIG_PATH})") { |v| @config_path = v }
+        o.on("--disable-drops", "apply: refuse if the diff contains any drop") { @allow_drops = false }
         o.on("-h", "--help", "Show this help") { @mode = :help }
         o.on("--version", "Show version") { @mode = :version }
       end

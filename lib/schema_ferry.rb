@@ -17,6 +17,7 @@ require_relative "schema_ferry/converter/enum_check_builder"
 require_relative "schema_ferry/converter/schema_converter"
 require_relative "schema_ferry/target/schemafile_renderer"
 require_relative "schema_ferry/target/ridgepole_runner"
+require_relative "schema_ferry/target/drop_guard"
 require_relative "schema_ferry/pipeline"
 
 module SchemaFerry

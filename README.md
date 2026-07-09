@@ -43,7 +43,7 @@ pipeline.apply!   # applies the schema to PostgreSQL
 
 There is also `pipeline.schemafile`, which returns the generated schema as a string without connecting to the target.
 
-`apply!` makes the target match the generated schema — including **dropping** columns and indexes from the target that are not part of it. Before running against a target that holds data, read [Handoff](#handoff) below.
+`apply!` makes the target match the generated schema — including **dropping** columns, indexes, foreign keys, and constraints from the target that are not part of it. Before running against a target that holds data, read [Handoff](#handoff) below.
 
 ### CLI
 
@@ -60,6 +60,7 @@ Then:
 schema_ferry dry-run                     # show what would change (reads ./Ferryfile)
 schema_ferry apply                       # apply to PostgreSQL
 schema_ferry apply -c path/to/Ferryfile  # explicit definition file path
+schema_ferry apply --disable-drops       # refuse instead of applying if the diff contains a drop
 ```
 
 Each command prints the changes it applied (or would apply) followed by a one-line summary (`118 tables synced, 3 changes applied`). The exit status is 0 on success and 1 on any error, so your monitoring can rely on it.
@@ -75,7 +76,7 @@ pipeline = SchemaFerry.define do
   map_type :json, to: :json            # e.g. opt out of the default json → jsonb conversion
 
   table :users do
-    map_column :is_admin, type: :boolean # override a specific column's type
+    column :is_admin, map_type_to: :boolean # override a specific column's type
     ignore_column :legacy_field          # exclude a column
     ignore_index :idx_old_legacy         # exclude an index
   end
@@ -103,14 +104,14 @@ The same rules work in a `Ferryfile`.
 
 | Method | Description |
 |---|---|
-| `map_column :col, type: :type` | Override a column's type |
-| `map_column :col, type: :type, default: value` | …and give it an explicit default |
+| `column :col, map_type_to: :type` | Override a column's type |
+| `column :col, map_type_to: :type, default: value` | …and give it an explicit default |
 | `ignore_column :col` | Exclude a column |
 | `ignore_index :index_name` | Exclude an index |
 
 Ignoring a column also drops indexes and foreign keys that reference it. Renaming tables or columns is out of scope — clean up names after the cutover with a regular migration.
 
-**tinyint(1) caveat:** ActiveRecord reads `tinyint(1)` as boolean, including its default (`DEFAULT 2` is read as `true`). If a `tinyint(1)` column actually holds 0/1/2-style values, override both the type and the default: `map_column :flags, type: :integer, default: 2`. Without an explicit default, schema_ferry drops the unreliable boolean default and warns.
+**tinyint(1) caveat:** ActiveRecord reads `tinyint(1)` as boolean, including its default (`DEFAULT 2` is read as `true`). If a `tinyint(1)` column actually holds 0/1/2-style values, override both the type and the default: `column :flags, map_type_to: :integer, default: 2`. Without an explicit default, schema_ferry drops the unreliable boolean default and warns.
 
 ## Default type mapping
 
@@ -130,11 +131,13 @@ Ignoring a column also drops indexes and foreign keys that reference it. Renamin
 | `JSON` | `jsonb` | opt out with `map_type :json, to: :json` |
 | `ENUM(...)` | `varchar` | add `enum_as :check` to enforce the values with a CHECK constraint |
 
-`map_type` / `map_column` take Rails-style abstract type symbols (`:string`, `:integer`, `:jsonb`, …), not raw SQL type names.
+`map_type` / `column`'s `map_type_to:` take Rails-style abstract type symbols (`:string`, `:integer`, `:jsonb`, …), not raw SQL type names.
 
 ## Handoff
 
 MySQL is the source of truth: `apply!` makes PostgreSQL match the generated schema exactly, so anything else on the target — including a column or index added by hand as an early stand-in — gets dropped. That's intentional. Add the real thing by hand once you're fully cut over to PostgreSQL, not before. The one exception is a table absent from the generated schema entirely — that's left alone.
+
+Though that's the philosophy, if you don't want it, you can switch it off with `apply!(allow_drops: false)`: `apply!` then only goes through when the diff is drop-free; otherwise it raises `SchemaFerry::DropNotAllowedError` instead of applying anything to the target.
 
 Within that generated schema, schema_ferry syncs what can be done automatically — exactly where possible, or as an approximation with a warning where it isn't — and leaves the rest to add by hand, later. Where there's no reasonable equivalent at all, it raises instead of guessing.
 

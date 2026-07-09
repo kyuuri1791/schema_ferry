@@ -71,7 +71,7 @@ module SchemaFerry
           emit_warning "#{rule.table_name}.#{raw[:name]}: dropping default #{default.inspect} — " \
                        "MySQL reported a tinyint(1) default as boolean, which is unreliable under " \
                        "a type override. Restore it explicitly: " \
-                       "map_column :#{raw[:name]}, type: :#{override}, default: <value>"
+                       "column :#{raw[:name]}, map_type_to: :#{override}, default: <value>"
           return nil
         end
         default

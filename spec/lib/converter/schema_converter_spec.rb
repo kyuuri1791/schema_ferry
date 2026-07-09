@@ -71,7 +71,7 @@ RSpec.describe SchemaFerry::Converter::SchemaConverter do
       make_config do
         table :users do
           ignore_column :bio
-          map_column :status, type: :boolean
+          column :status, map_type_to: :boolean
           ignore_index "index_users_on_name"
         end
       end
@@ -347,8 +347,8 @@ RSpec.describe SchemaFerry::Converter::SchemaConverter do
       end
     end
 
-    context "when the column has a map_column override" do
-      let(:config) { make_config { table(:places) { map_column :location, type: :binary } } }
+    context "when the column has a column override" do
+      let(:config) { make_config { table(:places) { column :location, map_type_to: :binary } } }
 
       it "uses the override instead of raising" do
         places = converter.convert(raw_tables).first
@@ -429,7 +429,7 @@ RSpec.describe SchemaFerry::Converter::SchemaConverter do
 
     context "when the type is overridden away from :boolean" do
       let(:config) do
-        make_config { table(:users) { map_column :tri, type: :integer } }
+        make_config { table(:users) { column :tri, map_type_to: :integer } }
       end
 
       it "drops the AR-coerced boolean default with a warning" do
@@ -441,9 +441,9 @@ RSpec.describe SchemaFerry::Converter::SchemaConverter do
       end
     end
 
-    context "when map_column supplies an explicit default" do
+    context "when column supplies an explicit default" do
       let(:config) do
-        make_config { table(:users) { map_column :tri, type: :integer, default: 2 } }
+        make_config { table(:users) { column :tri, map_type_to: :integer, default: 2 } }
       end
 
       it "uses the explicit default without warning" do
@@ -455,7 +455,7 @@ RSpec.describe SchemaFerry::Converter::SchemaConverter do
 
     context "when the override keeps :boolean" do
       let(:config) do
-        make_config { table(:users) { map_column :tri, type: :boolean } }
+        make_config { table(:users) { column :tri, map_type_to: :boolean } }
       end
 
       it "keeps the boolean default" do
@@ -495,7 +495,7 @@ RSpec.describe SchemaFerry::Converter::SchemaConverter do
       end
 
       it "skips columns whose type is overridden" do
-        config.table(:users) { map_column :kind, type: :integer }
+        config.table(:users) { column :kind, map_type_to: :integer }
         expect(converter.convert(raw_tables).first.check_constraints).to be_empty
       end
     end

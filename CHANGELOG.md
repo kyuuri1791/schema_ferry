@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `apply!(allow_drops: false)` — refuses to apply anything (raising `SchemaFerry::DropNotAllowedError` instead) whenever the diff contains a column, index, foreign key, or constraint drop. The default remains `allow_drops: true`, matching the gem's "MySQL is the source of truth" philosophy, but this gives an escape hatch for handoff periods where a target-only addition might otherwise get swept up in a legitimate MySQL-driven drop. The CLI exposes the same behavior via `schema_ferry apply --disable-drops`.
+
+### Changed
+
+- `map_column :col, type: :type` is now `column :col, map_type_to: :type`. `map_column` implied a mapping between two columns, which isn't what it does — it overrides one column's own type in place. `column` pairs with the existing `table` block, and `map_type_to:` mirrors `map_type`'s `to:` keyword for the same kind of type override.
+
 ## [0.2.0] - 2026-07-06
 
 ### Removed

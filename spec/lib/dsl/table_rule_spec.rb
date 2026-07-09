@@ -7,24 +7,24 @@ RSpec.describe SchemaFerry::DSL::TableRule do
     expect(rule.table_name).to eq("users")
   end
 
-  describe "#map_column" do
+  describe "#column" do
     it "records a type override" do
-      rule.map_column(:is_admin, type: :boolean)
+      rule.column(:is_admin, map_type_to: :boolean)
       expect(rule.column_type_overrides).to eq("is_admin" => :boolean)
     end
 
     it "records an explicit default when given" do
-      rule.map_column(:tri, type: :integer, default: 2)
+      rule.column(:tri, map_type_to: :integer, default: 2)
       expect(rule.column_default_overrides).to eq("tri" => 2)
     end
 
     it "records an explicit nil default" do
-      rule.map_column(:tri, type: :integer, default: nil)
+      rule.column(:tri, map_type_to: :integer, default: nil)
       expect(rule.column_default_overrides).to eq("tri" => nil)
     end
 
     it "records no default override when not given" do
-      rule.map_column(:tri, type: :integer)
+      rule.column(:tri, map_type_to: :integer)
       expect(rule.column_default_overrides).to be_empty
     end
   end

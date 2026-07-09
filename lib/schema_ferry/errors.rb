@@ -8,4 +8,5 @@ module SchemaFerry
   class ConversionError     < Error; end
   class RidgepoleNotFoundError < Error; end
   class RidgepoleError < Error; end
+  class DropNotAllowedError < Error; end
 end

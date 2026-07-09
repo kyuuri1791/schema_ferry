@@ -119,5 +119,37 @@ RSpec.describe SchemaFerry::CLI do
         expect(stderr.string).to include("boom")
       end
     end
+
+    describe "--disable-drops" do
+      it "applies normally when the pre-check dry-run has no drops" do
+        allow(runner).to receive(:run).with(schemafile, dry_run: true)
+                                      .and_return(%(create_table("users") do |t|\nend))
+        allow(runner).to receive(:run).with(schemafile, dry_run: false)
+                                      .and_return("Apply `x`\n-- create_table(\"users\")\n   -> 0.1s")
+        Dir.mktmpdir do |dir|
+          expect(cli.run(["apply", "-c", write_config(dir), "--disable-drops"])).to eq(0)
+          expect(stdout.string).to include("1 change applied")
+        end
+      end
+
+      it "exits 1 without applying when the pre-check dry-run finds a drop" do
+        allow(runner).to receive(:run).with(schemafile, dry_run: true)
+                                      .and_return('remove_column("users", "legacy_field")')
+        Dir.mktmpdir do |dir|
+          expect(cli.run(["apply", "-c", write_config(dir), "--disable-drops"])).to eq(1)
+          expect(stderr.string).to include('remove_column("users", "legacy_field")')
+        end
+        expect(runner).not_to have_received(:run).with(schemafile, dry_run: false)
+      end
+
+      it "has no effect on dry-run" do
+        allow(runner).to receive(:run).with(schemafile, dry_run: true)
+                                      .and_return('remove_column("users", "legacy_field")')
+        Dir.mktmpdir do |dir|
+          expect(cli.run(["dry-run", "-c", write_config(dir), "--disable-drops"])).to eq(0)
+        end
+        expect(runner).to have_received(:run).once
+      end
+    end
   end
 end

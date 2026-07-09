@@ -10,8 +10,13 @@ module SchemaFerry
       Target::RidgepoleRunner.new(@config.target_url).run(schemafile, dry_run: true)
     end
 
-    def apply!
-      Target::RidgepoleRunner.new(@config.target_url).run(schemafile, dry_run: false)
+    def apply!(allow_drops: true)
+      runner  = Target::RidgepoleRunner.new(@config.target_url)
+      content = schemafile
+
+      Target::DropGuard.check!(runner.run(content, dry_run: true)) unless allow_drops
+
+      runner.run(content, dry_run: false)
     end
 
     def schemafile
