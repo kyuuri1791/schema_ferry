@@ -56,17 +56,20 @@ module Fixtures
     )
   end
 
+  # The raw hash mirrors MysqlReader's output: a faithful transcription where
+  # columns include the PK column. The pk_* args describe that column.
   def build_raw_table(name:, columns: [], indexes: [], foreign_keys: [],
                       primary_key: "id", pk_type: :bigint, pk_limit: nil,
                       pk_sql_type: "bigint", comment: nil)
+    pk_column =
+      if primary_key.is_a?(String)
+        build_raw_column(name: primary_key, type: pk_type, sql_type: pk_sql_type, limit: pk_limit)
+      end
     {
       name:         name.to_s,
       primary_key:  primary_key,
-      pk_type:      pk_type,
-      pk_limit:     pk_limit,
-      pk_sql_type:  pk_sql_type,
       comment:      comment,
-      columns:      columns,
+      columns:      [pk_column, *columns].compact,
       indexes:      indexes,
       foreign_keys: foreign_keys
     }

@@ -42,30 +42,19 @@ module SchemaFerry
       end
 
       def read_table(conn, name)
-        columns = conn.columns(name)
-        pk      = conn.primary_key(name)
-        pk_col  = pk.is_a?(String) ? columns.find { |c| c.name == pk } : nil
         {
           name:         name,
-          primary_key:  pk,
-          pk_type:      pk_col&.type,
-          pk_limit:     pk_col&.type == :string ? pk_col.limit : nil,
-          pk_sql_type:  pk_col&.sql_type,
-          comment:      conn.table_comment(name).presence,
-          columns:      serialize_columns(columns, pk),
+          primary_key:  conn.primary_key(name),
+          comment:      conn.table_comment(name),
+          columns:      serialize_columns(conn.columns(name)),
           indexes:      serialize_indexes(conn.indexes(name)),
           foreign_keys: serialize_foreign_keys(conn.foreign_keys(name))
         }
       end
 
-      def serialize_columns(columns, primary_key)
+      def serialize_columns(columns)
         fields = %i[name type sql_type limit precision scale null default default_function comment]
-        # A single-column PK is rendered via create_table's id: option, so it is
-        # excluded here. Composite PK columns must stay: primary_key: [...] does
-        # not create them.
-        columns.reject { |c| c.name == primary_key }.map do |c|
-          fields.to_h { |field| [field, c.public_send(field)] }
-        end
+        columns.map { |c| fields.to_h { |field| [field, c.public_send(field)] } }
       end
 
       def serialize_indexes(indexes)
@@ -76,8 +65,8 @@ module SchemaFerry
             unique:  idx.unique,
             using:   idx.using,
             type:    idx.type,
-            lengths: idx.lengths.presence,
-            orders:  idx.orders.presence
+            lengths: idx.lengths,
+            orders:  idx.orders
           }
         end
       end

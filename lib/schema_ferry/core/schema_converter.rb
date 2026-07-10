@@ -29,18 +29,31 @@ module SchemaFerry
         rule    = @table_rules[raw[:name]]
         ignored = rule&.ignored_columns || []
         check_table_name_length!(raw[:name])
+        pk_col = primary_key_column(raw)
 
         Support::TableSchema.new(
           name:              raw[:name],
           primary_key:       raw[:primary_key],
-          pk_type:           convert_pk_type(raw),
-          pk_limit:          raw[:pk_limit],
-          comment:           raw[:comment],
-          columns:           convert_columns(raw[:columns], raw[:name], rule, ignored, fk_columns),
+          pk_type:           convert_pk_type(raw[:name], pk_col),
+          pk_limit:          convert_pk_limit(pk_col),
+          comment:           raw[:comment].presence,
+          columns:           convert_columns(data_columns(raw), raw[:name], rule, ignored, fk_columns),
           indexes:           convert_indexes(raw[:indexes], raw[:name], rule, ignored),
           foreign_keys:      convert_foreign_keys(raw),
           check_constraints: build_check_constraints(raw, rule, ignored)
         )
+      end
+
+      def primary_key_column(raw)
+        pk = raw[:primary_key]
+        pk.is_a?(String) ? raw[:columns].find { |c| c[:name] == pk } : nil
+      end
+
+      # A single-column PK is rendered via create_table's id: option, so it is
+      # excluded from the column list. Composite PK columns must stay:
+      # primary_key: [...] does not create them.
+      def data_columns(raw)
+        raw[:columns].reject { |c| c[:name] == raw[:primary_key] }
       end
 
       def check_table_name_length!(name)
@@ -71,13 +84,14 @@ module SchemaFerry
 
       # MySQL BIGINT comes through AR as :integer with limit 8, so the sql_type
       # is the only reliable source for the id: option.
-      def convert_pk_type(raw)
-        return raw[:pk_type] unless raw[:pk_type] == :integer
+      def convert_pk_type(table_name, pk_col)
+        return nil if pk_col.nil?
+        return pk_col[:type] unless pk_col[:type] == :integer
 
-        sql_type = raw[:pk_sql_type].to_s
+        sql_type = pk_col[:sql_type].to_s
         if sql_type.include?("unsigned")
           if sql_type.start_with?("bigint")
-            emit_warning "table #{raw[:name]}: BIGINT UNSIGNED primary key has no PostgreSQL " \
+            emit_warning "table #{table_name}: BIGINT UNSIGNED primary key has no PostgreSQL " \
                          "equivalent; using signed bigint (values above 2^63-1 will not fit)."
           end
           :bigint
@@ -86,6 +100,10 @@ module SchemaFerry
         else
           :integer
         end
+      end
+
+      def convert_pk_limit(pk_col)
+        pk_col[:limit] if pk_col && pk_col[:type] == :string
       end
 
       def convert_columns(raw_columns, table_name, rule, ignored, fk_columns)
@@ -134,8 +152,11 @@ module SchemaFerry
           columns: raw[:columns],
           unique:  raw[:unique],
           using:   raw[:using],
-          lengths: raw[:lengths],
-          orders:  raw[:orders]
+          # AR reports "no prefix lengths / orders" as an empty hash; rendering
+          # a literal lengths: {} would make ridgepole re-create the index on
+          # every run.
+          lengths: raw[:lengths].presence,
+          orders:  raw[:orders].presence
         )
       end
 
