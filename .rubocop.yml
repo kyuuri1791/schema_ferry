@@ -66,5 +66,6 @@ RSpec/ExampleLength:
   Max: 10
 
 Metrics/ParameterLists:
+  CountKeywordArgs: false
   Exclude:
     - "spec/**/*"

@@ -28,7 +28,7 @@ module SchemaFerry
 
     def sync_schema(dry_run:)
       IO::MysqlReader.new(@config.source_url).read_all
-        .then { |mysql_tables| Core.translate(@config, mysql_tables) }
+        .then { |mysql_tables| Core::SchemaConverter.new(@config).convert(mysql_tables) }
         .then { |schemafile| IO::PostgresWriter.new(@config.target_url).run(schemafile, dry_run: dry_run) }
     end
   end

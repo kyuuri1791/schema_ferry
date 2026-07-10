@@ -1,0 +1,404 @@
+# frozen_string_literal: true
+
+RSpec.describe SchemaFerry::Core::TableConverter do
+  include Fixtures
+
+  def build_rule(table_name = :t, &block)
+    rule = SchemaFerry::Config::TableRule.new(table_name)
+    rule.instance_eval(&block) if block
+    rule
+  end
+
+  def convert_table(raw, rule: SchemaFerry::Config::TableRule::EMPTY, fk_columns: [],
+                    type_overrides: {}, enum_check: nil)
+    described_class.new(
+      raw,
+      rule:             rule,
+      foreign_keys:     raw[:foreign_keys],
+      fk_columns:       fk_columns,
+      column_converter: SchemaFerry::Core::ColumnConverter.new(SchemaFerry::Core::TypeMapper.new(type_overrides)),
+      enum_check:       enum_check
+    ).convert
+  end
+
+  describe "type mapping" do
+    let(:raw) do
+      build_raw_table(
+        name:    "users",
+        columns: [
+          build_raw_column(name: "name", type: :string, sql_type: "varchar(255)", limit: 255),
+          build_raw_column(name: "bio",  type: :text,   sql_type: "text", limit: 65_535),
+          build_raw_column(name: "data", type: :json,   sql_type: "json")
+        ]
+      )
+    end
+
+    def column(name)
+      convert_table(raw).columns.find { |c| c.name == name }
+    end
+
+    it "converts :json columns to :jsonb by default" do
+      expect(column("data").type).to eq(:jsonb)
+    end
+
+    it "strips limits from :text columns" do
+      expect(column("bio").limit).to be_nil
+    end
+
+    it "preserves limits on :string columns" do
+      expect(column("name").limit).to eq(255)
+    end
+  end
+
+  describe "table-level rules" do
+    let(:raw) do
+      build_raw_table(
+        name:    "users",
+        columns: [
+          build_raw_column(name: "bio",    type: :text,    sql_type: "text"),
+          build_raw_column(name: "status", type: :integer, sql_type: "int(11)")
+        ],
+        indexes: [build_raw_index(name: "index_users_on_status", columns: ["status"])]
+      )
+    end
+
+    let(:rule) do
+      build_rule(:users) do
+        ignore_column :bio
+        column :status, map_type_to: :boolean
+        ignore_index "index_users_on_status"
+      end
+    end
+
+    it "removes ignored columns" do
+      expect(convert_table(raw, rule: rule).columns.map(&:name)).not_to include("bio")
+    end
+
+    it "overrides column type" do
+      status = convert_table(raw, rule: rule).columns.find { |c| c.name == "status" }
+      expect(status.type).to eq(:boolean)
+    end
+
+    it "removes ignored indexes" do
+      expect(convert_table(raw, rule: rule).indexes).to be_empty
+    end
+
+    it "drops indexes that reference an ignored column" do
+      raw = build_raw_table(
+        name:    "users",
+        columns: [build_raw_column(name: "legacy"), build_raw_column(name: "name")],
+        indexes: [
+          build_raw_index(name: "index_users_on_legacy_and_name", columns: %w[legacy name]),
+          build_raw_index(name: "index_users_on_name", columns: ["name"])
+        ]
+      )
+      rule = build_rule(:users) { ignore_column :legacy }
+      expect(convert_table(raw, rule: rule).indexes.map(&:name)).to eq(["index_users_on_name"])
+    end
+  end
+
+  describe "index lengths/orders passthrough" do
+    it "passes through scalar lengths/orders (single-column index)" do
+      raw = build_raw_table(
+        name:    "users",
+        columns: [build_raw_column(name: "name")],
+        indexes: [build_raw_index(name: "idx_name_prefix", columns: ["name"], lengths: 10, orders: :desc)]
+      )
+      idx = convert_table(raw).indexes.first
+      expect(idx.lengths).to eq(10)
+      expect(idx.orders).to eq(:desc)
+    end
+  end
+
+  describe "unsigned integers" do
+    let(:raw) do
+      build_raw_table(
+        name:    "counters",
+        columns: [
+          build_raw_column(name: "small",  type: :integer, sql_type: "smallint unsigned", limit: 2),
+          build_raw_column(name: "medium", type: :integer, sql_type: "int unsigned", limit: 4),
+          build_raw_column(name: "large",  type: :integer, sql_type: "bigint unsigned", limit: 8),
+          build_raw_column(name: "plain",  type: :integer, sql_type: "int", limit: 4)
+        ]
+      )
+    end
+
+    def column(name)
+      convert_table(raw).columns.find { |c| c.name == name }
+    end
+
+    it "bumps unsigned integers one size up" do
+      expect([column("small").type, column("small").limit]).to eq([:integer, nil])
+      expect(column("medium").type).to eq(:bigint)
+    end
+
+    it "maps BIGINT UNSIGNED to decimal(20) with a warning" do
+      col = nil
+      expect { col = column("large") }.to output(/BIGINT UNSIGNED/).to_stderr
+      expect([col.type, col.precision, col.scale]).to eq([:decimal, 20, nil])
+    end
+
+    it "does not widen signed integers" do
+      expect([column("plain").type, column("plain").limit]).to eq([:integer, nil])
+    end
+
+    context "when a BIGINT UNSIGNED column has a default" do
+      let(:raw) do
+        build_raw_table(
+          name:    "counters",
+          columns: [build_raw_column(name: "points", type: :integer, sql_type: "bigint unsigned",
+                                     limit: 8, default: 0)]
+        )
+      end
+
+      it "renders the default as a string, matching how AR's schema dumper renders decimal defaults" do
+        col = nil
+        expect { col = column("points") }.to output(/BIGINT UNSIGNED/).to_stderr
+        expect(col.default).to eq("0")
+      end
+    end
+
+    context "when the column takes part in a foreign key" do
+      let(:raw) do
+        build_raw_table(
+          name:    "posts",
+          columns: [build_raw_column(name: "user_id", type: :integer, sql_type: "bigint unsigned", limit: 8)]
+        )
+      end
+
+      it "maps BIGINT UNSIGNED to signed bigint instead of decimal" do
+        col = nil
+        expect { col = convert_table(raw, fk_columns: ["user_id"]).columns.first }
+          .to output(/takes part in a foreign key/).to_stderr
+        expect([col.type, col.limit, col.precision]).to eq([:bigint, nil, nil])
+      end
+    end
+  end
+
+  describe "primary key type" do
+    def pk_type_for(pk_sql_type)
+      convert_table(build_raw_table(name: "t", pk_type: :integer, pk_sql_type: pk_sql_type)).pk_type
+    end
+
+    it "maps BIGINT primary keys to :bigint (AR reports them as :integer)" do
+      expect(pk_type_for("bigint")).to eq(:bigint)
+    end
+
+    it "keeps INT primary keys as :integer" do
+      expect(pk_type_for("int")).to eq(:integer)
+    end
+
+    it "bumps INT UNSIGNED primary keys to :bigint" do
+      expect(pk_type_for("int unsigned")).to eq(:bigint)
+    end
+
+    it "maps BIGINT UNSIGNED primary keys to :bigint with a warning" do
+      expect { expect(pk_type_for("bigint unsigned")).to eq(:bigint) }
+        .to output(/BIGINT UNSIGNED primary key/).to_stderr
+    end
+  end
+
+  describe "FULLTEXT / SPATIAL indexes" do
+    let(:raw) do
+      build_raw_table(
+        name:    "posts",
+        columns: [build_raw_column(name: "body", type: :text, sql_type: "text")],
+        indexes: [build_raw_index(name: "ft_body", columns: ["body"], type: :fulltext)]
+      )
+    end
+
+    it "raises ConversionError" do
+      expect { convert_table(raw) }
+        .to raise_error(SchemaFerry::ConversionError, /FULLTEXT index "ft_body" has no PostgreSQL equivalent/)
+    end
+
+    context "when the index is explicitly ignored" do
+      it "excludes it without raising" do
+        rule = build_rule(:posts) { ignore_index :ft_body }
+        expect(convert_table(raw, rule: rule).indexes).to be_empty
+      end
+    end
+
+    context "when its column is ignored" do
+      it "excludes it without raising" do
+        rule = build_rule(:posts) { ignore_column :body }
+        expect(convert_table(raw, rule: rule).indexes).to be_empty
+      end
+    end
+  end
+
+  describe "spatial columns" do
+    let(:raw) do
+      build_raw_table(
+        name:    "places",
+        columns: [
+          build_raw_column(name: "name", type: :string, sql_type: "varchar(255)"),
+          # ActiveRecord's mysql2 adapter misreports POINT as plain :integer;
+          # only sql_type reveals what it actually is.
+          build_raw_column(name: "location", type: :integer, sql_type: "point")
+        ]
+      )
+    end
+
+    it "raises ConversionError for POINT columns, despite AR reporting them as :integer" do
+      expect { convert_table(raw) }
+        .to raise_error(SchemaFerry::ConversionError, /point columns have no PostgreSQL equivalent/)
+    end
+
+    context "when the column is explicitly ignored" do
+      it "excludes it without raising" do
+        rule = build_rule(:places) { ignore_column :location }
+        expect(convert_table(raw, rule: rule).columns.map(&:name)).to eq(["name"])
+      end
+    end
+
+    context "when the column has a column override" do
+      it "uses the override instead of raising" do
+        rule = build_rule(:places) { column :location, map_type_to: :binary }
+        location = convert_table(raw, rule: rule).columns.find { |c| c.name == "location" }
+        expect(location.type).to eq(:binary)
+      end
+    end
+
+    # AR reports most spatial types as nil, but misdetects POINT/MULTIPOINT
+    # as plain :integer — either way, check_spatial_type! raises the same way.
+    { "geometry" => nil, "linestring" => nil, "polygon" => nil, "multipoint" => :integer,
+      "multilinestring" => nil, "multipolygon" => nil, "geometrycollection" => nil }.each do |sql_type, ar_type|
+      it "raises ConversionError for #{sql_type.upcase} columns" do
+        raw = build_raw_table(
+          name:    "places",
+          columns: [build_raw_column(name: "geo", type: ar_type, sql_type: sql_type)]
+        )
+        expect { convert_table(raw) }
+          .to raise_error(SchemaFerry::ConversionError, /#{sql_type} columns have no PostgreSQL equivalent/i)
+      end
+    end
+  end
+
+  describe "identifier length" do
+    let(:long_name) { "index_users_on_#{"a" * 60}" }
+    let(:raw) do
+      build_raw_table(
+        name:    "users",
+        columns: [build_raw_column(name: "name")],
+        indexes: [build_raw_index(name: long_name, columns: ["name"])]
+      )
+    end
+
+    it "shortens index names over 63 bytes deterministically, with a warning" do
+      shortened = nil
+      expect { shortened = convert_table(raw).indexes.first.name }
+        .to output(/exceeds PostgreSQL's 63-byte identifier limit/).to_stderr
+
+      digest = Digest::MD5.hexdigest(long_name)[0, 8]
+      expect(shortened).to eq("#{long_name.byteslice(0, 54)}_#{digest}")
+    end
+
+    it "leaves names at 63 bytes or below untouched" do
+      raw = build_raw_table(
+        name:    "users",
+        columns: [build_raw_column(name: "name")],
+        indexes: [build_raw_index(name: "i#{"x" * 62}", columns: ["name"])]
+      )
+      expect(convert_table(raw).indexes.first.name.bytesize).to eq(63)
+    end
+  end
+
+  describe "zero-date defaults" do
+    it "drops them with a warning" do
+      raw = build_raw_table(
+        name:    "events",
+        columns: [build_raw_column(name: "happened_at", type: :datetime, sql_type: "datetime",
+                                   default: "0000-00-00 00:00:00")]
+      )
+      expect do
+        col = convert_table(raw).columns.first
+        expect(col.default).to be_nil
+      end.to output(/invalid on PostgreSQL/).to_stderr
+    end
+  end
+
+  describe "type override and boolean defaults" do
+    let(:raw) do
+      build_raw_table(
+        name:    "users",
+        columns: [build_raw_column(name: "tri", type: :boolean, sql_type: "tinyint(1)", default: true)]
+      )
+    end
+
+    context "when the type is overridden away from :boolean" do
+      it "drops the AR-coerced boolean default with a warning" do
+        rule = build_rule(:users) { column :tri, map_type_to: :integer }
+        expect do
+          col = convert_table(raw, rule: rule).columns.first
+          expect(col.type).to eq(:integer)
+          expect(col.default).to be_nil
+        end.to output(/dropping default true/).to_stderr
+      end
+    end
+
+    context "when column supplies an explicit default" do
+      it "uses the explicit default without warning" do
+        rule = build_rule(:users) { column :tri, map_type_to: :integer, default: 2 }
+        col = nil
+        expect { col = convert_table(raw, rule: rule).columns.first }.not_to output.to_stderr
+        expect(col.default).to eq(2)
+      end
+    end
+
+    context "when the override keeps :boolean" do
+      it "keeps the boolean default" do
+        rule = build_rule(:users) { column :tri, map_type_to: :boolean }
+        expect(convert_table(raw, rule: rule).columns.first.default).to be(true)
+      end
+    end
+  end
+
+  describe "enum conversion" do
+    let(:raw) do
+      build_raw_table(
+        name:    "users",
+        columns: [
+          build_raw_column(name: "kind", type: :string, sql_type: "enum('a','b')"),
+          build_raw_column(name: "name", type: :string)
+        ]
+      )
+    end
+
+    it "emits no check constraints without an enum check builder" do
+      expect(convert_table(raw).check_constraints).to be_empty
+    end
+
+    context "with an enum check builder (enum_as :check)" do
+      let(:enum_check) { SchemaFerry::Core::EnumCheckBuilder.new }
+
+      it "builds a CHECK constraint from the enum values (PG-normalized form)" do
+        chk = convert_table(raw, enum_check: enum_check).check_constraints.first
+        expect(chk.expression)
+          .to eq("kind::text = ANY (ARRAY['a'::character varying::text, 'b'::character varying::text])")
+        expect(chk.name).to eq("chk_users_kind")
+      end
+
+      it "skips ignored columns" do
+        rule = build_rule(:users) { ignore_column :kind }
+        expect(convert_table(raw, rule: rule, enum_check: enum_check).check_constraints).to be_empty
+      end
+
+      it "skips columns whose type is overridden" do
+        rule = build_rule(:users) { column :kind, map_type_to: :integer }
+        expect(convert_table(raw, rule: rule, enum_check: enum_check).check_constraints).to be_empty
+      end
+    end
+  end
+
+  describe "timestamptz via map_type" do
+    it "converts datetime columns to timestamptz" do
+      raw = build_raw_table(
+        name:    "events",
+        columns: [build_raw_column(name: "happened_at", type: :datetime, sql_type: "datetime")]
+      )
+      col = convert_table(raw, type_overrides: { datetime: :timestamptz }).columns.first
+      expect(col.type).to eq(:timestamptz)
+    end
+  end
+end

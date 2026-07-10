@@ -11,7 +11,7 @@ RSpec.describe SchemaFerry::Pipeline do
   end
 
   let(:reader)    { instance_double(SchemaFerry::IO::MysqlReader, read_all: []) }
-  let(:converter) { instance_double(SchemaFerry::Core::SchemaConverter, convert: [build_table(name: "users")]) }
+  let(:converter) { instance_double(SchemaFerry::Core::SchemaConverter, convert: %(create_table "users")) }
   let(:writer)    { instance_double(SchemaFerry::IO::PostgresWriter) }
 
   before do
@@ -21,7 +21,7 @@ RSpec.describe SchemaFerry::Pipeline do
   end
 
   describe "#dry_run" do
-    it "renders the converted tables and runs the writer in dry-run mode" do
+    it "passes the converted schemafile to the writer in dry-run mode" do
       allow(writer).to receive(:run).with(/create_table "users"/, dry_run: true).and_return("diff")
 
       expect(pipeline.dry_run).to eq("diff")
