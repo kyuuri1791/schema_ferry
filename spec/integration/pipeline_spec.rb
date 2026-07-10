@@ -48,7 +48,7 @@ RSpec.describe SchemaFerry::Pipeline do
 
   describe "POINT columns" do
     it "raises ConversionError unless the column is explicitly ignored" do
-      config = SchemaFerry::DSL::Config.build do
+      config = SchemaFerry::Config.build do
         source MYSQL_URL
         target POSTGRES_URL
       end
@@ -59,7 +59,7 @@ RSpec.describe SchemaFerry::Pipeline do
 
   describe "FULLTEXT indexes" do
     it "raises ConversionError unless the index is explicitly ignored" do
-      config = SchemaFerry::DSL::Config.build do
+      config = SchemaFerry::Config.build do
         source MYSQL_URL
         target POSTGRES_URL
         table(:posts) { ignore_column :location }
@@ -71,7 +71,7 @@ RSpec.describe SchemaFerry::Pipeline do
 
   describe "map_type :json, to: :json" do
     let(:json_config) do
-      SchemaFerry::DSL::Config.build do
+      SchemaFerry::Config.build do
         source MYSQL_URL
         target POSTGRES_URL
         table(:posts) do
@@ -90,7 +90,7 @@ RSpec.describe SchemaFerry::Pipeline do
 
   describe "overlong table names" do
     let(:long_name_config) do
-      SchemaFerry::DSL::Config.build do
+      SchemaFerry::Config.build do
         source MYSQL_URL
         target POSTGRES_URL
         table(:posts) do
@@ -452,8 +452,8 @@ RSpec.describe SchemaFerry::Pipeline do
   # itself deliberately has no public accessor for the intermediate text.
   def render_schemafile(config)
     mysql_tables = SchemaFerry::IO::MysqlReader.new(config.source_url).read_all
-    pg_tables    = SchemaFerry::Converter::SchemaConverter.new(config).convert(mysql_tables)
-    SchemaFerry::Internal::SchemafileRenderer.new.render(pg_tables)
+    pg_tables    = SchemaFerry::MysqlToPg::SchemaConverter.new(config).convert(mysql_tables)
+    SchemaFerry::Support::SchemafileRenderer.new.render(pg_tables)
   end
 
   # No host app to protect here (unlike SchemaFerry::IO::MysqlReader's own

@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 module SchemaFerry
-  module Converter
+  module MysqlToPg
     class SchemaConverter
-      include Internal::Warnings
+      include Support::Warnings
       include IdentifierShortenable
 
       UNSUPPORTED_INDEX_TYPES = %i[fulltext spatial].freeze
@@ -30,7 +30,7 @@ module SchemaFerry
         ignored = rule&.ignored_columns || []
         check_table_name_length!(raw[:name])
 
-        Internal::TableSchema.new(
+        Support::TableSchema.new(
           name:              raw[:name],
           primary_key:       raw[:primary_key],
           pk_type:           convert_pk_type(raw),
@@ -129,7 +129,7 @@ module SchemaFerry
       end
 
       def build_index_schema(raw, table_name)
-        Internal::IndexSchema.new(
+        Support::IndexSchema.new(
           name:    shorten_identifier(raw[:name], kind: "index", table: table_name),
           columns: raw[:columns],
           unique:  raw[:unique],
@@ -140,7 +140,7 @@ module SchemaFerry
       end
 
       def build_fk_schema(raw)
-        Internal::ForeignKeySchema.new(
+        Support::ForeignKeySchema.new(
           from_table:  raw[:from_table],
           to_table:    raw[:to_table],
           column:      raw[:column],

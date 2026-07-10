@@ -2,7 +2,7 @@
 
 module Fixtures
   def build_column(name:, type: :string, **opts)
-    SchemaFerry::Internal::ColumnSchema.new(
+    SchemaFerry::Support::ColumnSchema.new(
       name:             name.to_s,
       type:             type,
       limit:            nil,
@@ -17,7 +17,7 @@ module Fixtures
   end
 
   def build_index(name:, columns:, unique: false, **opts)
-    SchemaFerry::Internal::IndexSchema.new(
+    SchemaFerry::Support::IndexSchema.new(
       name:    name.to_s,
       columns: Array(columns).map(&:to_s),
       unique:  unique,
@@ -29,7 +29,7 @@ module Fixtures
   end
 
   def build_fk(from_table:, to_table:, column:, **opts)
-    SchemaFerry::Internal::ForeignKeySchema.new(
+    SchemaFerry::Support::ForeignKeySchema.new(
       from_table:  from_table.to_s,
       to_table:    to_table.to_s,
       column:      column.to_s,
@@ -42,7 +42,7 @@ module Fixtures
   end
 
   def build_table(name:, columns: [], indexes: [], foreign_keys: [], **opts)
-    SchemaFerry::Internal::TableSchema.new(
+    SchemaFerry::Support::TableSchema.new(
       name:              name.to_s,
       primary_key:       "id",
       pk_type:           :bigint,

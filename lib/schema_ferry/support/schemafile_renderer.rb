@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SchemaFerry
-  module Internal
+  module Support
     class SchemafileRenderer
       Call = Struct.new(:name, :args, :opts, :children)
       Raw = Struct.new(:source)

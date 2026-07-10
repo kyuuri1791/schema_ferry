@@ -2,7 +2,7 @@
 
 module SchemaFerry
   class Pipeline
-    include Internal::DropDetectable
+    include Support::DropDetectable
 
     def initialize(config)
       @config = config
@@ -28,8 +28,8 @@ module SchemaFerry
 
     def sync_schema(dry_run:)
       IO::MysqlReader.new(@config.source_url).read_all
-        .then { |mysql_tables| Converter::SchemaConverter.new(@config).convert(mysql_tables) }
-        .then { |pg_tables| Internal::SchemafileRenderer.new.render(pg_tables) }
+        .then { |mysql_tables| MysqlToPg::SchemaConverter.new(@config).convert(mysql_tables) }
+        .then { |pg_tables| Support::SchemafileRenderer.new.render(pg_tables) }
         .then { |schemafile| IO::PostgresWriter.new(@config.target_url).run(schemafile, dry_run: dry_run) }
     end
   end

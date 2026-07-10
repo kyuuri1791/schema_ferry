@@ -3,7 +3,7 @@
 RSpec.describe SchemaFerry::Pipeline do
   let(:pipeline) do
     described_class.new(
-      SchemaFerry::DSL::Config.build do
+      SchemaFerry::Config.build do
         source "mysql2://localhost/mydb"
         target "postgresql://localhost/pgdb"
       end
@@ -11,12 +11,12 @@ RSpec.describe SchemaFerry::Pipeline do
   end
 
   let(:reader)    { instance_double(SchemaFerry::IO::MysqlReader, read_all: []) }
-  let(:converter) { instance_double(SchemaFerry::Converter::SchemaConverter, convert: [build_table(name: "users")]) }
+  let(:converter) { instance_double(SchemaFerry::MysqlToPg::SchemaConverter, convert: [build_table(name: "users")]) }
   let(:writer)    { instance_double(SchemaFerry::IO::PostgresWriter) }
 
   before do
     allow(SchemaFerry::IO::MysqlReader).to receive(:new).and_return(reader)
-    allow(SchemaFerry::Converter::SchemaConverter).to receive(:new).and_return(converter)
+    allow(SchemaFerry::MysqlToPg::SchemaConverter).to receive(:new).and_return(converter)
     allow(SchemaFerry::IO::PostgresWriter).to receive(:new).and_return(writer)
   end
 

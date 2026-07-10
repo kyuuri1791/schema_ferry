@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 module SchemaFerry
-  module Converter
+  module MysqlToPg
     class ColumnConverter
-      include Internal::Warnings
+      include Support::Warnings
 
       # PG has no unsigned integers: bump to the next size that holds the full
       # unsigned range. Keys/values are AR byte limits.
@@ -21,10 +21,10 @@ module SchemaFerry
 
         if override
           col_opts[:default] = override_default(raw, rule, override)
-          Internal::ColumnSchema.new(name: raw[:name], type: override, **col_opts)
+          Support::ColumnSchema.new(name: raw[:name], type: override, **col_opts)
         else
           pg_type, pg_opts = @type_mapper.call(raw[:type], col_opts)
-          Internal::ColumnSchema.new(name: raw[:name], type: pg_type, **pg_opts)
+          Support::ColumnSchema.new(name: raw[:name], type: pg_type, **pg_opts)
         end
       end
 

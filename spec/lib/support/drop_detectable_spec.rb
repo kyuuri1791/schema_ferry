@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-RSpec.describe SchemaFerry::Internal::DropDetectable do
-  subject(:detector) { Class.new { include SchemaFerry::Internal::DropDetectable }.new }
+RSpec.describe SchemaFerry::Support::DropDetectable do
+  subject(:detector) { Class.new { include SchemaFerry::Support::DropDetectable }.new }
 
   def detect(ddl)
     detector.send(:detect_drops, ddl)

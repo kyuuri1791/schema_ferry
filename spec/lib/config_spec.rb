@@ -2,7 +2,7 @@
 
 require "tempfile"
 
-RSpec.describe SchemaFerry::DSL::Config do
+RSpec.describe SchemaFerry::Config do
   subject(:config) { described_class.new }
 
   describe ".build" do
@@ -69,7 +69,7 @@ RSpec.describe SchemaFerry::DSL::Config do
       config.table(:users) do
         ignore_column :legacy
       end
-      expect(config.table_rules["users"]).to be_a(SchemaFerry::DSL::TableRule)
+      expect(config.table_rules["users"]).to be_a(SchemaFerry::Config::TableRule)
       expect(config.table_rules["users"].ignored_columns).to include("legacy")
     end
   end

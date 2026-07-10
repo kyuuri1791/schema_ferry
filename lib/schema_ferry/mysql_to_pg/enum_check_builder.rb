@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SchemaFerry
-  module Converter
+  module MysqlToPg
     # Builds CHECK constraints enforcing MySQL enum values on varchar columns
     # (enum_as :check).
     class EnumCheckBuilder
@@ -24,7 +24,7 @@ module SchemaFerry
       private
 
       def build_constraint(table_name, col_name, values)
-        Internal::CheckConstraintSchema.new(
+        Support::CheckConstraintSchema.new(
           expression: expression(col_name, values),
           name:       shorten_identifier("chk_#{table_name}_#{col_name}",
                                          kind: "check constraint", table: table_name)

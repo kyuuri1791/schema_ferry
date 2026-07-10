@@ -3,12 +3,12 @@
 require "digest"
 
 module SchemaFerry
-  module Converter
+  module MysqlToPg
     # PostgreSQL truncates identifiers to 63 bytes (MySQL allows 64). A silently
     # truncated index name makes ridgepole see a diff on every run, so names that
     # would overflow are shortened deterministically instead.
     module IdentifierShortenable
-      include Internal::Warnings
+      include Support::Warnings
 
       MAX_BYTES   = 63
       HASH_LENGTH = 8

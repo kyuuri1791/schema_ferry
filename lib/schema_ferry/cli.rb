@@ -4,7 +4,7 @@ require "optparse"
 
 module SchemaFerry
   class CLI
-    include Internal::DropDetectable
+    include Support::DropDetectable
 
     DEFAULT_CONFIG_PATH = "Ferryfile"
     COMMANDS = %w[apply dry-run].freeze
@@ -35,8 +35,8 @@ module SchemaFerry
     def run_command(command)
       config       = load_config
       mysql_tables = IO::MysqlReader.new(config.source_url).read_all
-      pg_tables    = Converter::SchemaConverter.new(config).convert(mysql_tables)
-      schemafile   = Internal::SchemafileRenderer.new.render(pg_tables)
+      pg_tables    = MysqlToPg::SchemaConverter.new(config).convert(mysql_tables)
+      schemafile   = Support::SchemafileRenderer.new.render(pg_tables)
       dry_run      = command == "dry-run"
       writer       = IO::PostgresWriter.new(config.target_url)
 
@@ -81,7 +81,7 @@ module SchemaFerry
       path = @config_path || DEFAULT_CONFIG_PATH
       raise ConfigError, "definition file not found: #{path}" unless File.exist?(path)
 
-      DSL::Config.load_file(path)
+      Config.load_file(path)
     end
 
     def parser

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SchemaFerry
-  module Internal
+  module Support
     module DropDetectable
       DROP_LINE = /^(?:drop_table|remove_column|remove_index|remove_foreign_key|
                       remove_check_constraint|remove_exclusion_constraint|

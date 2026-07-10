@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SchemaFerry
-  module DSL
+  class Config
     class TableRule
       UNSET = Object.new.freeze
       private_constant :UNSET
