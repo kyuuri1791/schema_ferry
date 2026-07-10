@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SchemaFerry
-  module Source
+  module IO
     class MysqlReader
       def initialize(url)
         @url = url

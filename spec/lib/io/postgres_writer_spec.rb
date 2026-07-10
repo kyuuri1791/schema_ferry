@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe SchemaFerry::Target::RidgepoleRunner do
+RSpec.describe SchemaFerry::IO::PostgresWriter do
   subject(:runner) { described_class.new("postgresql://localhost/pgdb") }
 
   describe "#run" do

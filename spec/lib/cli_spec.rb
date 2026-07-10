@@ -76,12 +76,16 @@ RSpec.describe SchemaFerry::CLI do
         end
       RUBY
     end
-    let(:pipeline) { instance_double(SchemaFerry::Pipeline, schemafile: schemafile) }
-    let(:runner)   { instance_double(SchemaFerry::Target::RidgepoleRunner) }
+    let(:runner) { instance_double(SchemaFerry::IO::PostgresWriter) }
 
     before do
-      allow(SchemaFerry::Pipeline).to receive(:new).and_return(pipeline)
-      allow(SchemaFerry::Target::RidgepoleRunner).to receive(:new).and_return(runner)
+      allow(SchemaFerry::IO::MysqlReader).to receive(:new)
+        .and_return(instance_double(SchemaFerry::IO::MysqlReader, read_all: []))
+      allow(SchemaFerry::Converter::SchemaConverter).to receive(:new)
+        .and_return(instance_double(SchemaFerry::Converter::SchemaConverter, convert: []))
+      allow(SchemaFerry::Internal::SchemafileRenderer).to receive(:new)
+        .and_return(instance_double(SchemaFerry::Internal::SchemafileRenderer, render: schemafile))
+      allow(SchemaFerry::IO::PostgresWriter).to receive(:new).and_return(runner)
     end
 
     it "dry-run prints the diff and a summary" do

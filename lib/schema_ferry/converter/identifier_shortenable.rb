@@ -8,7 +8,7 @@ module SchemaFerry
     # truncated index name makes ridgepole see a diff on every run, so names that
     # would overflow are shortened deterministically instead.
     module IdentifierShortenable
-      include Warnings
+      include Internal::Warnings
 
       MAX_BYTES   = 63
       HASH_LENGTH = 8

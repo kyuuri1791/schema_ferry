@@ -4,12 +4,12 @@ require "open3"
 require "tempfile"
 
 module SchemaFerry
-  module Target
+  module IO
     # Runs ridgepole as a subprocess rather than via Ridgepole::Client:
     # Ridgepole::Client calls ActiveRecord::Base.establish_connection and
     # patches AR in-process, which would hijack a host Rails app's database
     # connection.
-    class RidgepoleRunner
+    class PostgresWriter
       def initialize(target_url)
         @target_url = target_url
       end

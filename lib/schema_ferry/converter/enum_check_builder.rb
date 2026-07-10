@@ -24,7 +24,7 @@ module SchemaFerry
       private
 
       def build_constraint(table_name, col_name, values)
-        CheckConstraintSchema.new(
+        Internal::CheckConstraintSchema.new(
           expression: expression(col_name, values),
           name:       shorten_identifier("chk_#{table_name}_#{col_name}",
                                          kind: "check constraint", table: table_name)

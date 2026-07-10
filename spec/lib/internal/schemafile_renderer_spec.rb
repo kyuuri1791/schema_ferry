@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe SchemaFerry::Target::SchemafileRenderer do
+RSpec.describe SchemaFerry::Internal::SchemafileRenderer do
   include Fixtures
 
   subject(:renderer) { described_class.new }
@@ -28,50 +28,16 @@ RSpec.describe SchemaFerry::Target::SchemafileRenderer do
     end
   end
 
-  describe "timestamps collapsing" do
-    let(:created_at) { build_column(name: "created_at", type: :datetime, null: false) }
-    let(:updated_at) { build_column(name: "updated_at", type: :datetime, null: false) }
-
-    it "collapses created_at + updated_at into t.timestamps" do
+  describe "timestamp columns" do
+    # Deliberately no t.timestamps collapsing: the Schemafile is a
+    # machine-consumed intermediate, so plain columns keep the renderer simple.
+    it "renders created_at/updated_at as plain datetime columns" do
+      created_at = build_column(name: "created_at", type: :datetime, null: false)
+      updated_at = build_column(name: "updated_at", type: :datetime, null: false)
       table  = build_table(name: "posts", columns: [created_at, updated_at])
       output = render(table)
-      expect(output).to include("t.timestamps")
-      expect(output).not_to include('t.datetime "created_at"')
-      expect(output).not_to include('t.datetime "updated_at"')
-    end
-
-    it "respects null: false on timestamps" do
-      table  = build_table(name: "posts", columns: [created_at, updated_at])
-      output = render(table)
-      expect(output).to include("t.timestamps null: false")
-    end
-
-    it "does NOT collapse when only created_at exists" do
-      table  = build_table(name: "posts", columns: [created_at])
-      output = render(table)
-      expect(output).to include('t.datetime "created_at"')
-      expect(output).not_to include("t.timestamps")
-    end
-
-    it "does NOT collapse when null values differ" do
-      ts_null = build_column(name: "updated_at", type: :datetime, null: true)
-      table   = build_table(name: "posts", columns: [created_at, ts_null])
-      output  = render(table)
-      expect(output).not_to include("t.timestamps")
-    end
-
-    it "does NOT collapse when types differ" do
-      ts_date = build_column(name: "updated_at", type: :date, null: false)
-      table   = build_table(name: "posts", columns: [created_at, ts_date])
-      output  = render(table)
-      expect(output).not_to include("t.timestamps")
-    end
-
-    it "does NOT collapse when a default function is present" do
-      ts_func = build_column(name: "updated_at", type: :datetime, null: false,
-                             default_function: "CURRENT_TIMESTAMP")
-      table   = build_table(name: "posts", columns: [created_at, ts_func])
-      output  = render(table)
+      expect(output).to include('t.datetime "created_at", null: false')
+      expect(output).to include('t.datetime "updated_at", null: false')
       expect(output).not_to include("t.timestamps")
     end
   end
@@ -116,7 +82,7 @@ RSpec.describe SchemaFerry::Target::SchemafileRenderer do
 
   describe "check constraints" do
     it "renders t.check_constraint inside the table block" do
-      chk   = SchemaFerry::CheckConstraintSchema.new(expression: "kind IN ('a', 'b')", name: "chk_users_kind")
+      chk   = SchemaFerry::Internal::CheckConstraintSchema.new(expression: "kind IN ('a', 'b')", name: "chk_users_kind")
       table = build_table(name: "users", check_constraints: [chk])
       output = render(table)
       expect(output).to include(%(  t.check_constraint "kind IN ('a', 'b')", name: "chk_users_kind"))

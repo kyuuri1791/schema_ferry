@@ -2,33 +2,35 @@
 
 module SchemaFerry
   class Pipeline
+    include Internal::DropDetectable
+
     def initialize(config)
       @config = config
-      @runner = Target::RidgepoleRunner.new(config.target_url)
     end
 
     def dry_run
-      @runner.run(compile_schemafile, dry_run: true)
+      sync_schema(dry_run: true)
     end
 
     def apply!(allow_drops: true)
-      Target::DropGuard.check!(dry_run) unless allow_drops
+      unless allow_drops
+        drops = detect_drops(sync_schema(dry_run: true))
+        unless drops.empty?
+          raise DropNotAllowedError,
+                "refused: the diff contains drop(s):\n#{drops.join("\n")}"
+        end
+      end
 
-      @runner.run(compile_schemafile, dry_run: false)
-    end
-
-    def schemafile
-      compile_schemafile
+      sync_schema(dry_run: false)
     end
 
     private
 
-    def compile_schemafile
-      @compile_schemafile ||= begin
-        mysql_tables = Source::MysqlReader.new(@config.source_url).read_all
-        pg_tables    = Converter::SchemaConverter.new(@config).convert(mysql_tables)
-        Target::SchemafileRenderer.new.render(pg_tables)
-      end
+    def sync_schema(dry_run:)
+      IO::MysqlReader.new(@config.source_url).read_all
+        .then { |mysql_tables| Converter::SchemaConverter.new(@config).convert(mysql_tables) }
+        .then { |pg_tables| Internal::SchemafileRenderer.new.render(pg_tables) }
+        .then { |schemafile| IO::PostgresWriter.new(@config.target_url).run(schemafile, dry_run: dry_run) }
     end
   end
 end

@@ -48,30 +48,30 @@ RSpec.describe SchemaFerry::Pipeline do
 
   describe "POINT columns" do
     it "raises ConversionError unless the column is explicitly ignored" do
-      pipeline_without_ignore = SchemaFerry.define do
+      config = SchemaFerry::DSL::Config.build do
         source MYSQL_URL
         target POSTGRES_URL
       end
-      expect { pipeline_without_ignore.schemafile }
+      expect { render_schemafile(config) }
         .to raise_error(SchemaFerry::ConversionError, /point columns have no PostgreSQL equivalent/)
     end
   end
 
   describe "FULLTEXT indexes" do
     it "raises ConversionError unless the index is explicitly ignored" do
-      pipeline_without_ignore = SchemaFerry.define do
+      config = SchemaFerry::DSL::Config.build do
         source MYSQL_URL
         target POSTGRES_URL
         table(:posts) { ignore_column :location }
       end
-      expect { pipeline_without_ignore.schemafile }
+      expect { render_schemafile(config) }
         .to raise_error(SchemaFerry::ConversionError, /FULLTEXT index .* has no PostgreSQL equivalent/)
     end
   end
 
   describe "map_type :json, to: :json" do
-    let(:json_pipeline) do
-      SchemaFerry.define do
+    let(:json_config) do
+      SchemaFerry::DSL::Config.build do
         source MYSQL_URL
         target POSTGRES_URL
         table(:posts) do
@@ -84,13 +84,13 @@ RSpec.describe SchemaFerry::Pipeline do
     end
 
     it "opts out of the default json -> jsonb conversion" do
-      expect(json_pipeline.schemafile).to include('t.json "metadata"')
+      expect(render_schemafile(json_config)).to include('t.json "metadata"')
     end
   end
 
   describe "overlong table names" do
-    let(:long_name_pipeline) do
-      SchemaFerry.define do
+    let(:long_name_config) do
+      SchemaFerry::DSL::Config.build do
         source MYSQL_URL
         target POSTGRES_URL
         table(:posts) do
@@ -101,7 +101,7 @@ RSpec.describe SchemaFerry::Pipeline do
     end
 
     it "raises without shortening, unlike index/foreign key names" do
-      expect { long_name_pipeline.schemafile }
+      expect { render_schemafile(long_name_config) }
         .to raise_error(SchemaFerry::ConversionError,
                         /table name #{Regexp.escape(LONG_TABLE_NAME.inspect)} exceeds PostgreSQL's 63-byte/)
     end
@@ -137,8 +137,10 @@ RSpec.describe SchemaFerry::Pipeline do
       end
     end
 
-    it "collapses created_at and updated_at into t.timestamps" do
-      expect(pipeline.schemafile).to include("t.timestamps")
+    it "carries created_at and updated_at over as plain datetime columns" do
+      with_pg do |conn|
+        expect(conn.columns("users").map(&:name)).to include("created_at", "updated_at")
+      end
     end
 
     it "creates indexes" do
@@ -446,7 +448,15 @@ RSpec.describe SchemaFerry::Pipeline do
     end
   end
 
-  # No host app to protect here (unlike SchemaFerry::Source::MysqlReader's own
+  # Builds the Schemafile the same way Pipeline does internally — Pipeline
+  # itself deliberately has no public accessor for the intermediate text.
+  def render_schemafile(config)
+    mysql_tables = SchemaFerry::IO::MysqlReader.new(config.source_url).read_all
+    pg_tables    = SchemaFerry::Converter::SchemaConverter.new(config).convert(mysql_tables)
+    SchemaFerry::Internal::SchemafileRenderer.new.render(pg_tables)
+  end
+
+  # No host app to protect here (unlike SchemaFerry::IO::MysqlReader's own
   # connection handling), so plain ActiveRecord::Base is fine for fixture setup.
   def with_connection(url)
     ActiveRecord::Base.establish_connection(url)

@@ -10,28 +10,39 @@ RSpec.describe SchemaFerry::Pipeline do
     )
   end
 
-  let(:runner) { instance_double(SchemaFerry::Target::RidgepoleRunner) }
+  let(:reader)    { instance_double(SchemaFerry::IO::MysqlReader, read_all: []) }
+  let(:converter) { instance_double(SchemaFerry::Converter::SchemaConverter, convert: [build_table(name: "users")]) }
+  let(:writer)    { instance_double(SchemaFerry::IO::PostgresWriter) }
 
   before do
-    allow(SchemaFerry::Target::RidgepoleRunner).to receive(:new).and_return(runner)
-    allow(pipeline).to receive(:compile_schemafile).and_return("create_table \"users\" do |t|\nend")
+    allow(SchemaFerry::IO::MysqlReader).to receive(:new).and_return(reader)
+    allow(SchemaFerry::Converter::SchemaConverter).to receive(:new).and_return(converter)
+    allow(SchemaFerry::IO::PostgresWriter).to receive(:new).and_return(writer)
+  end
+
+  describe "#dry_run" do
+    it "renders the converted tables and runs the writer in dry-run mode" do
+      allow(writer).to receive(:run).with(/create_table "users"/, dry_run: true).and_return("diff")
+
+      expect(pipeline.dry_run).to eq("diff")
+    end
   end
 
   describe "#apply!" do
     context "when allow_drops is true (default)" do
       it "applies directly without a dry-run pre-check" do
-        allow(runner).to receive(:run).with(anything, dry_run: false).and_return("applied")
+        allow(writer).to receive(:run).with(anything, dry_run: false).and_return("applied")
 
         expect(pipeline.apply!).to eq("applied")
-        expect(runner).not_to have_received(:run).with(anything, dry_run: true)
+        expect(writer).not_to have_received(:run).with(anything, dry_run: true)
       end
     end
 
     context "when allow_drops is false and the dry-run reports no drops" do
       it "runs the real apply after the pre-check" do
-        allow(runner).to receive(:run).with(anything, dry_run: true)
+        allow(writer).to receive(:run).with(anything, dry_run: true)
                                       .and_return('add_column("users", "x", :string, {})')
-        allow(runner).to receive(:run).with(anything, dry_run: false).and_return("applied")
+        allow(writer).to receive(:run).with(anything, dry_run: false).and_return("applied")
 
         expect(pipeline.apply!(allow_drops: false)).to eq("applied")
       end
@@ -39,12 +50,12 @@ RSpec.describe SchemaFerry::Pipeline do
 
     context "when allow_drops is false and the dry-run reports a drop" do
       it "raises DropNotAllowedError without running the real apply" do
-        allow(runner).to receive(:run).with(anything, dry_run: true)
+        allow(writer).to receive(:run).with(anything, dry_run: true)
                                       .and_return('remove_column("users", "legacy_field")')
 
         expect { pipeline.apply!(allow_drops: false) }
           .to raise_error(SchemaFerry::DropNotAllowedError, /remove_column\("users", "legacy_field"\)/)
-        expect(runner).not_to have_received(:run).with(anything, dry_run: false)
+        expect(writer).not_to have_received(:run).with(anything, dry_run: false)
       end
     end
   end

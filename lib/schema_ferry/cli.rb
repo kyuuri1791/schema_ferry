@@ -3,9 +3,9 @@
 require "optparse"
 
 module SchemaFerry
-  # #run returns a process exit code instead of calling Kernel#exit so the
-  # class stays testable.
   class CLI
+    include Internal::DropDetectable
+
     DEFAULT_CONFIG_PATH = "Ferryfile"
     COMMANDS = %w[apply dry-run].freeze
 
@@ -33,14 +33,19 @@ module SchemaFerry
     private
 
     def run_command(command)
-      config     = load_config
-      schemafile = Pipeline.new(config).schemafile
-      dry_run    = command == "dry-run"
-      runner     = Target::RidgepoleRunner.new(config.target_url)
+      config       = load_config
+      mysql_tables = IO::MysqlReader.new(config.source_url).read_all
+      pg_tables    = Converter::SchemaConverter.new(config).convert(mysql_tables)
+      schemafile   = Internal::SchemafileRenderer.new.render(pg_tables)
+      dry_run      = command == "dry-run"
+      writer       = IO::PostgresWriter.new(config.target_url)
 
-      Target::DropGuard.check!(runner.run(schemafile, dry_run: true)) if command == "apply" && !@allow_drops
+      if command == "apply" && !@allow_drops
+        drops = detect_drops(writer.run(schemafile, dry_run: true))
+        raise DropNotAllowedError, "refused: the diff contains drop(s):\n#{drops.join("\n")}" unless drops.empty?
+      end
 
-      output = runner.run(schemafile, dry_run: dry_run)
+      output = writer.run(schemafile, dry_run: dry_run)
 
       @stdout.puts output
       @stdout.puts summary(schemafile, output, dry_run: dry_run)
