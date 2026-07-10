@@ -41,8 +41,6 @@ pipeline.dry_run  # returns the changes that would be applied, without applying 
 pipeline.apply!   # applies the schema to PostgreSQL
 ```
 
-There is also `pipeline.schemafile`, which returns the generated schema as a string without connecting to the target.
-
 `apply!` makes the target match the generated schema — including **dropping** columns, indexes, foreign keys, and constraints from the target that are not part of it. Before running against a target that holds data, read [Handoff](#handoff) below.
 
 ### CLI

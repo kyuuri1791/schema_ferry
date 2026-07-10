@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `apply!` now wraps the whole migration in a single transaction (via ridgepole's `--pre-query`/`--post-query`), so a failure partway through no longer leaves a half-applied schema on the target.
 - A table name over 63 bytes now raises `SchemaFerry::ConversionError` instead of just warning. `apply!` was never actually going to succeed for it anyway — ActiveRecord's own PostgreSQL schema statements reject an over-length `create_table` outright — so the warning was misleading about how far the pipeline would actually get. `ignore_table` it, or rename it in MySQL.
 
+### Removed
+
+- `Pipeline#schemafile` — it exposed the generated ridgepole Schemafile as a string without connecting to the target. That text is an internal hand-off format between schema_ferry and ridgepole, and keeping it public meant committing to a stable, human-friendly rendering of it forever. Pipeline's API is now just `dry_run` and `apply!`; to preview what a run would do, use `dry_run` — it shows the actual diff against the target rather than the full declared schema.
+
 ### Fixed
 
 - A MySQL `MULTIPOINT` column silently passed through as a plain PostgreSQL integer instead of raising. ActiveRecord misdetects `MULTIPOINT` as `:integer`, the same bug that already affected `POINT` — the check only matched `POINT` by name, so `MULTIPOINT` slipped past it. All eight MySQL spatial types (`GEOMETRY`, `POINT`, `LINESTRING`, `POLYGON`, `MULTIPOINT`, `MULTILINESTRING`, `MULTIPOLYGON`, `GEOMETRYCOLLECTION`) are now matched directly by `sql_type`, so they all raise the same explicit "no PostgreSQL equivalent without PostGIS" error instead of some going through a generic "unknown type" message.
