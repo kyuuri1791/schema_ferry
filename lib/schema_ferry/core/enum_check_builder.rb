@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SchemaFerry
-  module MysqlToPg
+  module Core
     # Builds CHECK constraints enforcing MySQL enum values on varchar columns
     # (enum_as :check).
     class EnumCheckBuilder

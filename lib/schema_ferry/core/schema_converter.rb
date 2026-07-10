@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SchemaFerry
-  module MysqlToPg
+  module Core
     class SchemaConverter
       include Support::Warnings
       include IdentifierShortenable

@@ -452,7 +452,7 @@ RSpec.describe SchemaFerry::Pipeline do
   # itself deliberately has no public accessor for the intermediate text.
   def render_schemafile(config)
     mysql_tables = SchemaFerry::IO::MysqlReader.new(config.source_url).read_all
-    pg_tables    = SchemaFerry::MysqlToPg::SchemaConverter.new(config).convert(mysql_tables)
+    pg_tables    = SchemaFerry::Core::SchemaConverter.new(config).convert(mysql_tables)
     SchemaFerry::Support::SchemafileRenderer.new.render(pg_tables)
   end
 

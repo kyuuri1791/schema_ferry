@@ -11,12 +11,12 @@ RSpec.describe SchemaFerry::Pipeline do
   end
 
   let(:reader)    { instance_double(SchemaFerry::IO::MysqlReader, read_all: []) }
-  let(:converter) { instance_double(SchemaFerry::MysqlToPg::SchemaConverter, convert: [build_table(name: "users")]) }
+  let(:converter) { instance_double(SchemaFerry::Core::SchemaConverter, convert: [build_table(name: "users")]) }
   let(:writer)    { instance_double(SchemaFerry::IO::PostgresWriter) }
 
   before do
     allow(SchemaFerry::IO::MysqlReader).to receive(:new).and_return(reader)
-    allow(SchemaFerry::MysqlToPg::SchemaConverter).to receive(:new).and_return(converter)
+    allow(SchemaFerry::Core::SchemaConverter).to receive(:new).and_return(converter)
     allow(SchemaFerry::IO::PostgresWriter).to receive(:new).and_return(writer)
   end
 

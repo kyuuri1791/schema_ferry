@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe SchemaFerry::MysqlToPg::SchemaConverter do
+RSpec.describe SchemaFerry::Core::SchemaConverter do
   include Fixtures
 
   def make_config(_overrides = {}, &block)

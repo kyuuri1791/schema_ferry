@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SchemaFerry
-  module MysqlToPg
+  module Core
     class ColumnConverter
       include Support::Warnings
 

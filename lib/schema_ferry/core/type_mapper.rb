@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SchemaFerry
-  module MysqlToPg
+  module Core
     class TypeMapper
       # PG has no limit concept for text/binary/bigint/float; drop the
       # MySQL-derived limits (float's limit: 53 is DOUBLE's internal bit

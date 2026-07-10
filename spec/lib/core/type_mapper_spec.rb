@@ -2,7 +2,7 @@
 
 require "bigdecimal"
 
-RSpec.describe SchemaFerry::MysqlToPg::TypeMapper do
+RSpec.describe SchemaFerry::Core::TypeMapper do
   subject(:mapper) { described_class.new }
 
   describe "identity mappings" do
