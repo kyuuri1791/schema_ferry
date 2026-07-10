@@ -31,7 +31,7 @@ module SchemaFerry
 
     def initialize
       @global_type_overrides = {}
-      @table_rules           = {}
+      @table_rules           = Hash.new(TableRule::EMPTY)
       @ignored_tables        = []
       @enum_mode             = :string
     end
@@ -103,6 +103,9 @@ module SchemaFerry
       def ignore_index(index_name)
         @ignored_indexes << index_name.to_s
       end
+
+      # Null object for tables without a `table ... do` block.
+      EMPTY = new("").freeze
     end
   end
 end

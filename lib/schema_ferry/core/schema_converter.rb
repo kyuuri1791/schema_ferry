@@ -26,8 +26,7 @@ module SchemaFerry
       private
 
       def convert_table(raw, fk_columns)
-        rule    = @table_rules[raw[:name]]
-        ignored = rule&.ignored_columns || []
+        rule = @table_rules[raw[:name]]
         check_table_name_length!(raw[:name])
         pk_col = primary_key_column(raw)
 
@@ -37,10 +36,10 @@ module SchemaFerry
           pk_type:           convert_pk_type(raw[:name], pk_col),
           pk_limit:          convert_pk_limit(pk_col),
           comment:           raw[:comment].presence,
-          columns:           convert_columns(data_columns(raw), raw[:name], rule, ignored, fk_columns),
-          indexes:           convert_indexes(raw[:indexes], raw[:name], rule, ignored),
+          columns:           convert_columns(data_columns(raw), raw[:name], rule, fk_columns),
+          indexes:           convert_indexes(raw[:indexes], raw[:name], rule),
           foreign_keys:      convert_foreign_keys(raw),
-          check_constraints: build_check_constraints(raw, rule, ignored)
+          check_constraints: build_check_constraints(raw, rule)
         )
       end
 
@@ -76,7 +75,7 @@ module SchemaFerry
       end
 
       def surviving_foreign_keys(raw)
-        ignored = @table_rules[raw[:name]]&.ignored_columns || []
+        ignored = @table_rules[raw[:name]].ignored_columns
         raw[:foreign_keys]
           .reject { |fk| @ignored_tables.include?(fk[:to_table]) }
           .reject { |fk| ignored.include?(fk[:column]) }
@@ -106,9 +105,9 @@ module SchemaFerry
         pk_col[:limit] if pk_col && pk_col[:type] == :string
       end
 
-      def convert_columns(raw_columns, table_name, rule, ignored, fk_columns)
+      def convert_columns(raw_columns, table_name, rule, fk_columns)
         raw_columns
-          .reject { |c| ignored.include?(c[:name]) }
+          .reject { |c| rule.ignored_columns.include?(c[:name]) }
           .map do |c|
             check_spatial_type!(c, table_name, rule)
             @column_converter.call(c, table_name, rule, fk_columns)
@@ -116,7 +115,7 @@ module SchemaFerry
       end
 
       def check_spatial_type!(raw, table_name, rule)
-        return if rule&.column_type_overrides&.key?(raw[:name]) # handled downstream, like any other override
+        return if rule.column_type_overrides.key?(raw[:name]) # handled downstream, like any other override
 
         if raw[:sql_type].to_s.match?(SPATIAL_SQL_TYPES)
           raise ConversionError, "#{table_name}.#{raw[:name]}: MySQL #{raw[:sql_type]} columns have no " \
@@ -125,10 +124,10 @@ module SchemaFerry
         end
       end
 
-      def convert_indexes(raw_indexes, table_name, rule, ignored)
+      def convert_indexes(raw_indexes, table_name, rule)
         raw_indexes
-          .reject { |idx| rule&.ignored_indexes&.include?(idx[:name]) }
-          .reject { |idx| idx[:columns].intersect?(ignored) }
+          .reject { |idx| rule.ignored_indexes.include?(idx[:name]) }
+          .reject { |idx| idx[:columns].intersect?(rule.ignored_columns) }
           .map do |idx|
             check_unsupported_index_type!(idx, table_name)
             build_index_schema(idx, table_name)
@@ -172,10 +171,10 @@ module SchemaFerry
         )
       end
 
-      def build_check_constraints(raw, rule, ignored)
+      def build_check_constraints(raw, rule)
         return [] unless @enum_check
 
-        @enum_check.call(raw, rule, ignored)
+        @enum_check.call(raw, rule)
       end
     end
   end

@@ -16,7 +16,7 @@ module SchemaFerry
       def call(raw, table_name, rule, fk_columns = [])
         raw      = bump_unsigned_integer(raw, table_name, fk_columns.include?(raw[:name]))
         raw      = drop_zero_date_default(raw, table_name)
-        override = rule&.column_type_overrides&.[](raw[:name])
+        override = rule.column_type_overrides[raw[:name]]
         col_opts = raw.slice(:limit, :precision, :scale, :null, :default, :default_function, :comment)
 
         if override

@@ -7,12 +7,12 @@ module SchemaFerry
     class EnumCheckBuilder
       include IdentifierShortenable
 
-      def call(raw_table, rule, ignored)
+      def call(raw_table, rule)
         raw_table[:columns].filter_map do |col|
-          next if ignored.include?(col[:name])
+          next if rule.ignored_columns.include?(col[:name])
           # A type override takes the column away from varchar; the caller owns
           # any constraint then.
-          next if rule&.column_type_overrides&.key?(col[:name])
+          next if rule.column_type_overrides.key?(col[:name])
 
           values = enum_values(col[:sql_type])
           next if values.nil?
