@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe SchemaFerry::Support::SchemafileRenderer do
+RSpec.describe SchemaFerry::Core::SchemafileRenderer do
   include Fixtures
 
   subject(:renderer) { described_class.new }
@@ -82,7 +82,7 @@ RSpec.describe SchemaFerry::Support::SchemafileRenderer do
 
   describe "check constraints" do
     it "renders t.check_constraint inside the table block" do
-      chk   = SchemaFerry::Support::CheckConstraintSchema.new(expression: "kind IN ('a', 'b')", name: "chk_users_kind")
+      chk   = SchemaFerry::Core::CheckConstraintSchema.new(expression: "kind IN ('a', 'b')", name: "chk_users_kind")
       table = build_table(name: "users", check_constraints: [chk])
       output = render(table)
       expect(output).to include(%(  t.check_constraint "kind IN ('a', 'b')", name: "chk_users_kind"))

@@ -3,7 +3,7 @@
 # Plain data structs for the converted (PostgreSQL-side) schema: SchemaConverter
 # builds these, SchemafileRenderer reads them.
 module SchemaFerry
-  module Support
+  module Core
     TableSchema = Struct.new(
       :name,              # String
       :primary_key,       # String | Array<String> | nil

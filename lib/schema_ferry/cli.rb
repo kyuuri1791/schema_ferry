@@ -35,8 +35,7 @@ module SchemaFerry
     def run_command(command)
       config       = load_config
       mysql_tables = IO::MysqlReader.new(config.source_url).read_all
-      pg_tables    = Core::SchemaConverter.new(config).convert(mysql_tables)
-      schemafile   = Support::SchemafileRenderer.new.render(pg_tables)
+      schemafile   = Core.translate(config, mysql_tables)
       dry_run      = command == "dry-run"
       writer       = IO::PostgresWriter.new(config.target_url)
 

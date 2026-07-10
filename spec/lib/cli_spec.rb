@@ -83,8 +83,8 @@ RSpec.describe SchemaFerry::CLI do
         .and_return(instance_double(SchemaFerry::IO::MysqlReader, read_all: []))
       allow(SchemaFerry::Core::SchemaConverter).to receive(:new)
         .and_return(instance_double(SchemaFerry::Core::SchemaConverter, convert: []))
-      allow(SchemaFerry::Support::SchemafileRenderer).to receive(:new)
-        .and_return(instance_double(SchemaFerry::Support::SchemafileRenderer, render: schemafile))
+      allow(SchemaFerry::Core::SchemafileRenderer).to receive(:new)
+        .and_return(instance_double(SchemaFerry::Core::SchemafileRenderer, render: schemafile))
       allow(SchemaFerry::IO::PostgresWriter).to receive(:new).and_return(runner)
     end
 

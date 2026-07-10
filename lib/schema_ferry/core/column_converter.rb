@@ -21,10 +21,10 @@ module SchemaFerry
 
         if override
           col_opts[:default] = override_default(raw, rule, override)
-          Support::ColumnSchema.new(name: raw[:name], type: override, **col_opts)
+          ColumnSchema.new(name: raw[:name], type: override, **col_opts)
         else
           pg_type, pg_opts = @type_mapper.call(raw[:type], col_opts)
-          Support::ColumnSchema.new(name: raw[:name], type: pg_type, **pg_opts)
+          ColumnSchema.new(name: raw[:name], type: pg_type, **pg_opts)
         end
       end
 

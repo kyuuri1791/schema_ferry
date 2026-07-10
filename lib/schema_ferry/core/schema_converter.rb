@@ -31,7 +31,7 @@ module SchemaFerry
         check_table_name_length!(raw[:name])
         pk_col = primary_key_column(raw)
 
-        Support::TableSchema.new(
+        TableSchema.new(
           name:              raw[:name],
           primary_key:       raw[:primary_key],
           pk_type:           convert_pk_type(raw[:name], pk_col),
@@ -147,7 +147,7 @@ module SchemaFerry
       end
 
       def build_index_schema(raw, table_name)
-        Support::IndexSchema.new(
+        IndexSchema.new(
           name:    shorten_identifier(raw[:name], kind: "index", table: table_name),
           columns: raw[:columns],
           unique:  raw[:unique],
@@ -161,7 +161,7 @@ module SchemaFerry
       end
 
       def build_fk_schema(raw)
-        Support::ForeignKeySchema.new(
+        ForeignKeySchema.new(
           from_table:  raw[:from_table],
           to_table:    raw[:to_table],
           column:      raw[:column],
