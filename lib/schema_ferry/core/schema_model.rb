@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Plain data structs for the converted (PostgreSQL-side) schema: SchemaConverter
+# Plain data structs for the converted (PostgreSQL-side) schema: TableConverter
 # builds these, SchemafileRenderer reads them.
 module SchemaFerry
   module Core

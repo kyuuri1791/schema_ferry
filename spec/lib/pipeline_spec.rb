@@ -10,13 +10,13 @@ RSpec.describe SchemaFerry::Pipeline do
     )
   end
 
-  let(:reader)    { instance_double(SchemaFerry::IO::MysqlReader, read_all: []) }
-  let(:converter) { instance_double(SchemaFerry::Core::SchemaConverter, convert: %(create_table "users")) }
-  let(:writer)    { instance_double(SchemaFerry::IO::PostgresWriter) }
+  let(:reader) { instance_double(SchemaFerry::IO::MysqlReader, read_all: []) }
+  let(:translator) { instance_double(SchemaFerry::Core::Translator, translate: %(create_table "users")) }
+  let(:writer) { instance_double(SchemaFerry::IO::PostgresWriter) }
 
   before do
     allow(SchemaFerry::IO::MysqlReader).to receive(:new).and_return(reader)
-    allow(SchemaFerry::Core::SchemaConverter).to receive(:new).and_return(converter)
+    allow(SchemaFerry::Core::Translator).to receive(:new).and_return(translator)
     allow(SchemaFerry::IO::PostgresWriter).to receive(:new).and_return(writer)
   end
 
@@ -45,6 +45,14 @@ RSpec.describe SchemaFerry::Pipeline do
         allow(writer).to receive(:run).with(anything, dry_run: false).and_return("applied")
 
         expect(pipeline.apply!(allow_drops: false)).to eq("applied")
+      end
+
+      it "applies the same schemafile the pre-check saw, without re-reading the source" do
+        allow(writer).to receive(:run).and_return('add_column("users", "x", :string, {})')
+
+        pipeline.apply!(allow_drops: false)
+
+        expect(reader).to have_received(:read_all).once
       end
     end
 

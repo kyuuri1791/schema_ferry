@@ -2,14 +2,14 @@
 
 module SchemaFerry
   module Core
-    class SchemaConverter
+    class Translator
       def initialize(config)
         @config           = config
         @column_converter = ColumnConverter.new(TypeMapper.new(config.global_type_overrides))
         @enum_check       = (EnumCheckBuilder.new if config.enum_mode == :check)
       end
 
-      def convert(raw_tables)
+      def translate(raw_tables)
         kept_tables  = raw_tables.reject { |t| @config.ignored_tables.include?(t[:name]) }
         foreign_keys = kept_tables.to_h { |t| [t[:name], surviving_foreign_keys(t)] }
         fk_columns   = collect_fk_columns(foreign_keys)

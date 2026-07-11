@@ -77,9 +77,6 @@ module SchemaFerry
 
     # Vocabulary available inside a `table :name do ... end` block.
     class TableRule
-      UNSET = Object.new.freeze
-      private_constant :UNSET
-
       attr_reader :table_name, :column_type_overrides,
                   :column_default_overrides, :ignored_columns, :ignored_indexes
 
@@ -91,9 +88,13 @@ module SchemaFerry
         @ignored_indexes          = []
       end
 
-      def column(column_name, map_type_to:, default: UNSET)
+      EMPTY = new("").freeze # Null object for tables without a `table ... do` block.
+      DEFAULT_OMITTED = Object.new.freeze
+      private_constant :DEFAULT_OMITTED
+
+      def column(column_name, map_type_to:, default: DEFAULT_OMITTED)
         @column_type_overrides[column_name.to_s] = map_type_to.to_sym
-        @column_default_overrides[column_name.to_s] = default unless default.equal?(UNSET)
+        @column_default_overrides[column_name.to_s] = default unless default.equal?(DEFAULT_OMITTED)
       end
 
       def ignore_column(column_name)
@@ -103,9 +104,6 @@ module SchemaFerry
       def ignore_index(index_name)
         @ignored_indexes << index_name.to_s
       end
-
-      # Null object for tables without a `table ... do` block.
-      EMPTY = new("").freeze
     end
   end
 end

@@ -9,27 +9,32 @@ module SchemaFerry
     end
 
     def dry_run
-      sync_schema(dry_run: true)
+      write(build_schemafile, dry_run: true)
     end
 
     def apply!(allow_drops: true)
+      schemafile = build_schemafile
+
       unless allow_drops
-        drops = detect_drops(sync_schema(dry_run: true))
+        drops = detect_drops(write(schemafile, dry_run: true))
         unless drops.empty?
           raise DropNotAllowedError,
                 "refused: the diff contains drop(s):\n#{drops.join("\n")}"
         end
       end
 
-      sync_schema(dry_run: false)
+      write(schemafile, dry_run: false)
     end
 
     private
 
-    def sync_schema(dry_run:)
+    def build_schemafile
       IO::MysqlReader.new(@config.source_url).read_all
-        .then { |mysql_tables| Core::SchemaConverter.new(@config).convert(mysql_tables) }
-        .then { |schemafile| IO::PostgresWriter.new(@config.target_url).run(schemafile, dry_run: dry_run) }
+        .then { |mysql_tables| Core::Translator.new(@config).translate(mysql_tables) }
+    end
+
+    def write(schemafile, dry_run:)
+      IO::PostgresWriter.new(@config.target_url).run(schemafile, dry_run: dry_run)
     end
   end
 end

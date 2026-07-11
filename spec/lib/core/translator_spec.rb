@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe SchemaFerry::Core::SchemaConverter do
+RSpec.describe SchemaFerry::Core::Translator do
   include Fixtures
 
   def make_config(&block)
@@ -9,7 +9,7 @@ RSpec.describe SchemaFerry::Core::SchemaConverter do
     config
   end
 
-  subject(:converter) { described_class.new(config) }
+  subject(:translator) { described_class.new(config) }
 
   let(:config) { make_config }
 
@@ -18,7 +18,7 @@ RSpec.describe SchemaFerry::Core::SchemaConverter do
     let(:raw_tables) { [build_raw_table(name: "users"), build_raw_table(name: "old_sessions")] }
 
     it "excludes the ignored table from the schemafile" do
-      schemafile = converter.convert(raw_tables)
+      schemafile = translator.translate(raw_tables)
       expect(schemafile).to include('create_table "users"')
       expect(schemafile).not_to include('create_table "old_sessions"')
     end
@@ -49,15 +49,15 @@ RSpec.describe SchemaFerry::Core::SchemaConverter do
     end
 
     it "keeps foreign keys unrelated to any ignore rule" do
-      expect(converter.convert(raw_tables)).to include('add_foreign_key "users", "profiles"')
+      expect(translator.translate(raw_tables)).to include('add_foreign_key "users", "profiles"')
     end
 
     it "drops foreign keys on an ignored column" do
-      expect(converter.convert(raw_tables)).not_to include('add_foreign_key "users", "accounts"')
+      expect(translator.translate(raw_tables)).not_to include('add_foreign_key "users", "accounts"')
     end
 
     it "drops foreign keys pointing at an ignored table" do
-      expect(converter.convert(raw_tables)).not_to include('add_foreign_key "users", "old_sessions"')
+      expect(translator.translate(raw_tables)).not_to include('add_foreign_key "users", "old_sessions"')
     end
   end
 
@@ -78,7 +78,7 @@ RSpec.describe SchemaFerry::Core::SchemaConverter do
 
     it "maps the referencing column to signed bigint so it matches the referenced primary key" do
       schemafile = nil
-      expect { schemafile = converter.convert(raw_tables) }
+      expect { schemafile = translator.translate(raw_tables) }
         .to output(/takes part in a foreign key/).to_stderr
       expect(schemafile).to include('t.bigint "user_id"')
     end
@@ -103,7 +103,7 @@ RSpec.describe SchemaFerry::Core::SchemaConverter do
 
       it "maps the referenced column to signed bigint as well" do
         schemafile = nil
-        expect { schemafile = converter.convert(raw_tables) }
+        expect { schemafile = translator.translate(raw_tables) }
           .to output(/takes part in a foreign key/).to_stderr
         expect(schemafile).to include('t.bigint "ref"')
       end
@@ -112,7 +112,7 @@ RSpec.describe SchemaFerry::Core::SchemaConverter do
     it "keeps decimal(20, 0) when the foreign key is dropped by ignore_table" do
       config.ignore_table :users
       schemafile = nil
-      expect { schemafile = converter.convert(raw_tables) }
+      expect { schemafile = translator.translate(raw_tables) }
         .to output(/decimal\(20, 0\)/).to_stderr
       expect(schemafile).to include('t.decimal "user_id", precision: 20')
     end
