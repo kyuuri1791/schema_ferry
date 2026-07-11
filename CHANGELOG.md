@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] - 2026-07-11
 
 ### Added
 
@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - A MySQL `MULTIPOINT` column silently passed through as a plain PostgreSQL integer instead of raising. ActiveRecord misdetects `MULTIPOINT` as `:integer`, the same bug that already affected `POINT` — the check only matched `POINT` by name, so `MULTIPOINT` slipped past it. All eight MySQL spatial types (`GEOMETRY`, `POINT`, `LINESTRING`, `POLYGON`, `MULTIPOINT`, `MULTILINESTRING`, `MULTIPOLYGON`, `GEOMETRYCOLLECTION`) are now matched directly by `sql_type`, so they all raise the same explicit "no PostgreSQL equivalent without PostGIS" error instead of some going through a generic "unknown type" message.
+- `Pipeline#apply!(allow_drops: false)` read the MySQL schema twice — once for the drop pre-check and once for the actual apply — so a schema change landing on MySQL between the two reads could apply a drop the pre-check never saw. The schema is now read and converted once, and the same Schemafile is used for both the pre-check and the apply, matching what the CLI already did.
 
 ## [0.2.0] - 2026-07-06
 
